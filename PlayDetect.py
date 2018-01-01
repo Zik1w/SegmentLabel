@@ -140,7 +140,7 @@ class PlayDetect(object):
         print("most similarity scenes are:")
         for s in top_sorted_seg:
             seg = json.loads(s)
-            print(seg["info"])
+            print(seg["SceneName"])
             tmp_seg.append(seg)
 
         result_sorted_seg = {'segment': tmp_seg}
@@ -156,8 +156,8 @@ class PlayDetect(object):
         self.processSeg(segInfo)
         c = self.resultSegConn.cursor()
 
-        resultseg_entry = (str(segName), segInfo['start'], segInfo['end'], None, None, None, str(segInfo["info"]))  #replace last entry with segment information
-        c.execute('INSERT INTO segResult VALUES (?,?,?,?,?,?,?)', resultseg_entry)
+        # resultseg_entry = (str(segName), segInfo['start'], segInfo['end'], None, None, None, str(segInfo["info"]))  #replace last entry with segment information
+        # c.execute('INSERT INTO segResult VALUES (?,?,?,?,?,?,?)', resultseg_entry)
 
         resultseg_info_entry = (str(segName), json.dumps(segInfo))
         c.execute('INSERT INTO segInfo VALUES (?,?)', resultseg_info_entry)

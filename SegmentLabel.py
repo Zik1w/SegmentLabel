@@ -71,15 +71,15 @@ class SegmentLabel(object):
         self.readConfig(config_file)
 
 
-        c_init = self.conn.cursor()
-
-        c_init.execute("drop table if exists seglab")
-
-        c_init.execute('''CREATE TABLE IF NOT EXISTS seglab
-                     (Start TEXT, Frame TEXT, Date DATE, Run TEXT, Scene TEXT, Class TEXT, Label TEXT, Prob REAL, Location REAL, 
-                     PRIMARY KEY(Start, Frame, Class, Label))''')
-
-        c_init.close()
+        # c_init = self.conn.cursor()
+        #
+        # c_init.execute("drop table if exists seglab")
+        #
+        # c_init.execute('''CREATE TABLE IF NOT EXISTS seglab
+        #              (Start TEXT, Frame TEXT, Date DATE, Run TEXT, Scene TEXT, Class TEXT, Label TEXT, Prob REAL, Location REAL,
+        #              PRIMARY KEY(Start, Frame, Class, Label))''')
+        #
+        # c_init.close()
 
 
     @staticmethod
