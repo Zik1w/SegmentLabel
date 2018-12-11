@@ -3,6 +3,7 @@ import getopt
 import os
 import struct
 import datetime
+import math
 import json
 import csv
 import numpy as np
@@ -33,6 +34,8 @@ class SegmentLabel(object):
         self.thresold_param = 0.5
         self.seg_num = 0
         self.initial_frame = None
+        self.thresold_sum_option = 0
+        self.thresold_ratio = 3*pow(len(self.index_map),1.5)
 
 
 
@@ -41,18 +44,16 @@ class SegmentLabel(object):
         index_map = {}
         with open(label_file, newline='') as csvfile:
             reader = csv.DictReader(csvfile)
-
-        for row in reader:
-            index_map[row['label']] = row['Number']
+            for row in reader:
+                index_map[row['label']] = int(row['Number'])
         return index_map
 
     def updateIndex(self, label_file):
         tmp_index_map = {}
         with open(label_file, newline='') as csvfile:
             reader = csv.DictReader(csvfile)
-
-        for row in reader:
-            tmp_index_map[row['label']] = row['Number']
+            for row in reader:
+                tmp_index_map[int(row['label'])] = row['Number']
         self.index_map = tmp_index_map
 
 
@@ -60,9 +61,8 @@ class SegmentLabel(object):
         weight_vector = np.ones(len(self.index_map))
         with open(weight_file, newline='') as csvfile:
             reader = csv.DictReader(csvfile)
-
-        for row in reader:
-            weight_vector[row['label']-1] = row['Weight']
+            for row in reader:
+                weight_vector[int(row['Number'])-1] = row['Weight']
         return weight_vector
 
 
@@ -70,16 +70,15 @@ class SegmentLabel(object):
         tmp_weight_vector = np.ones(len(self.index_map))
         with open(weight_file, newline='') as csvfile:
             reader = csv.DictReader(csvfile)
-
-        for row in reader:
-            tmp_weight_vector[row['label']-1] = row['Weight']
+            for row in reader:
+                tmp_weight_vector[int(row['Number'])-1] = row['Weight']
         self.weight_vector = tmp_weight_vector
 
     def objectEncodingVector(self, ann):
         tem_ojbect_vector = np.zeros(len(self.index_map))
 
         for item in ann:
-            tem_ojbect_vector[index_map[item['label']]-1] += 1
+            tem_ojbect_vector[self.index_map[item['label']]-1] += 1
         return tem_ojbect_vector
 
     def spatialWeightVector(self, ann):
@@ -87,10 +86,12 @@ class SegmentLabel(object):
         tmp_cnt_vector = np.zeros(len(self.index_map))
 
         for k in ann:
-            tmp_sw_vector[index_map[item['label']]-1] += (k["xright"] - k["xleft"]) * (k["ytop"] - k["ybottom"])
-            tmp_cnt_vector[index_map[item['label']]-1] += 1
+            if (k["xright"] - k["xleft"]) * (k["ybottom"] - k["ytop"]) < 0:
+                print("error!")
+            tmp_sw_vector[self.index_map[k['label']]-1] += (k["xright"] - k["xleft"]) * (k["ybottom"] - k["ytop"])
+            tmp_cnt_vector[self.index_map[k['label']]-1] += 1
 
-        return tmp_sw_vector / tmp_cnt_vector
+        return np.divide(tmp_sw_vector, tmp_cnt_vector, out=tmp_sw_vector, where=tmp_cnt_vector != 0)
 
     ##TODO: update this method
     def temporalWeightVector(self, ann, object_prev_vector):
@@ -106,7 +107,7 @@ class SegmentLabel(object):
 
 
     def objectVariationVector(self, prev, current):
-        tem_var_vector = np.zeros(len(index_map))
+        tem_var_vector = np.zeros(len(self.index_map))
 
         for k in range(len(prev)):
             if prev[k] > current[k]:
@@ -118,21 +119,36 @@ class SegmentLabel(object):
 
 
     def dissimiliarityVector(self, ft, f, tt, t, sp, sc):
-        return self.weight_param*ft/f * self.temporal_param*tt/t * self.spatial_param*sp/sc *self.weight_param*self.weight_vector
+
+        return self.object_param*(np.divide(ft, f, out=ft, where=f != 0)) \
+               * self.temporal_param*np.divide(tt, t, out=tt, where=t != 0) \
+               * self.weight_param * self.weight_vector
+               # * self.spatial_param*np.divide(sp, sc, out=np.zeros_like(sp), where=sc != 0) \
 
 
 
-    ##TODO:add more information
+    ##TODO:extract more information
     def labeling(self, first, last, table):
         data_object = {"labels": [], "start": first[-1]["frameName"], "end": last[-1]["frameName"]}
         for k, v in table.items():
             data_object["labels"].append({"item": k, "frequency": v})
         data_json = json.dumps(data_object)
+        print(data_json)
         return data_json
 
 
     def thresold_check(self, dm):
-        if math.tanh(dm.sum() < self.thresold_param):
+
+
+        if self.thresold_sum_option:
+            metric_dm = np.sqrt(dm.dot(dm))/self.thresold_ratio
+        else:
+            metric_dm = dm.sum()/self.thresold_ratio
+
+        # print(metric_dm)
+        # print( math.tanh(metric_dm))
+
+        if max(0, metric_dm) < self.thresold_param:
             return False
         else:
             return True
@@ -155,7 +171,7 @@ class SegmentLabel(object):
             curr_list.append(temp)
 
         frame_list = []
-        last_frame = self.initial_frame
+        last_frame = []
         frame_table = None
         if not self.initilized:
 
@@ -194,8 +210,8 @@ class SegmentLabel(object):
                     self.seg_num += 1
                     self.initial_frame = curr_frame
                     frame_table = ann_table
-                else:
-                    last_frame = curr_frame
+
+                last_frame = curr_frame
 
         else:
             for curr_frame in curr_list:
@@ -220,10 +236,14 @@ class SegmentLabel(object):
                     self.seg_num += 1
                     self.initial_frame = curr_frame
                     frame_table = ann_table
-                else:
-                    last_frame = curr_frame
+
+                last_frame = curr_frame
 
         return json.dumps(frame_list)
+
+
+    def resultFigure(self):
+        pass
 
     def sceneDetection(self, ann):
         return self.processAnnotation(ann)
