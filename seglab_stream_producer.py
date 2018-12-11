@@ -158,7 +158,7 @@ def main():
     # face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
 
-    publishIntervalMs = 1000.0 * 20
+    publishIntervalMs = 1000.0 * 1
     stream = Namespace("/ndn/eb/stream/run/28/annotations", keyChain)
     handler = GeneralizedObjectStreamHandler()
     stream.setHandler(handler)
@@ -211,16 +211,12 @@ def main():
 
 
             handler.addObject(
-              Blob("payload" + str(handler.getProducedSequenceNumber() + 1)),
-              "application/json")
-
-            handler.addObject(
-                Blob(json.dump(curr_list[cnt]) + str(handler.getProducedSequenceNumber() + 1)),
+                Blob(json.dumps(curr_list[cnt])),
                 "application/json")
 
             # handler.addObject(
-            #   Blob("payload" + str(Name.Component.fromSequenceNumber(handler.getProducedSequenceNumber() + 1))),
-            #   "application/json")
+            #     Blob(json.dumps(curr_list[cnt]) + str(handler.getProducedSequenceNumber() + 1)),
+            #     "application/json")
 
             cnt+= 1
             previousPublishMs = now

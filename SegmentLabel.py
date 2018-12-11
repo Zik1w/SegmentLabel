@@ -7,7 +7,7 @@ import math
 import json
 import csv
 import numpy as np
-import matplotlib.pyplot as plt
+import sqlite3
 from collections import Counter
 
 
@@ -31,11 +31,14 @@ class SegmentLabel(object):
         self.initilized = False
         self.add_param = 1.0
         self.remove_param = 1.0
-        self.thresold_param = 0.5
         self.seg_num = 0
         self.initial_frame = None
-        self.thresold_sum_option = 0
-        self.thresold_ratio = 3*pow(len(self.index_map),1.5)
+        self.thresold_sum_option = 0     #0 for L1-norm, 1 for L2-norm
+        self.thresold_ratio = 3
+        self.class_ratio = 1.5
+        self.thresold_param = 0.5
+        self.conn = sqlite3.connect('seglab.db')
+
 
 
 
@@ -141,9 +144,9 @@ class SegmentLabel(object):
 
 
         if self.thresold_sum_option:
-            metric_dm = np.sqrt(dm.dot(dm))/self.thresold_ratio
+            metric_dm = np.sqrt(dm.dot(dm))/(self.thresold_ratio*pow(len(self.index_map), self.class_ratio))
         else:
-            metric_dm = dm.sum()/self.thresold_ratio
+            metric_dm = dm.sum()/(self.thresold_ratio*pow(len(self.index_map), self.class_ratio))
 
         # print(metric_dm)
         # print( math.tanh(metric_dm))
@@ -155,6 +158,14 @@ class SegmentLabel(object):
 
 
     def processAnnotation(self, ann_file):
+
+        c = self.conn.cursor()
+
+        c.execute("drop table if exists seglab")
+
+        c.execute('''CREATE TABLE IF NOT EXISTS seglab
+                     (Start TEXT, Frame TEXT, Date DATE, Run TEXT, Scene TEXT, Class TEXT, Label TEXT, Prob REAL, Location REAL, 
+                     PRIMARY KEY(Start, Frame, Class, Label))''')
 
         curr = []
         for line in open(ann_file, 'r'):
@@ -179,8 +190,14 @@ class SegmentLabel(object):
             last_frame = self.initial_frame
 
             frame_table = Counter()
+            entries = []
             for item in self.initial_frame:
                 frame_table[item['label']] += 1
+                # print(self.initial_frame[0]['frameName'], item['frameName'], item['label'],str(frame_table[item['label']]))
+                temp_entry = (self.initial_frame[0]['frameName'], item['frameName'], None, None, None, item['label'], str(frame_table[item['label']]), item['prob'], None)
+                entries.append(temp_entry)
+
+            c.executemany('INSERT INTO seglab VALUES (?,?,?,?,?,?,?,?,?)', entries)
 
             self.object_prev_vector = self.objectEncodingVector(self.initial_frame)
             self.spatial_prev_vector = self.spatialWeightVector(self.initial_frame)
@@ -190,8 +207,17 @@ class SegmentLabel(object):
             for curr_frame in curr_list[1:]:
 
                 ann_table = Counter()
+                entries = []
                 for item in curr_frame:
                     ann_table[item['label']] += 1
+                    print(ann_table)
+                    print(ann_table["book"])
+                    print(self.initial_frame[0]['frameName'], item['frameName'], item['label'], str(ann_table[item['label']]))
+                    temp_entry = (self.initial_frame[0]['frameName'], item['frameName'], None, None, None, item['label'], str(ann_table[item['label']]), item['prob'], None)
+                    entries.append(temp_entry)
+
+
+                c.executemany('INSERT INTO seglab VALUES (?,?,?,?,?,?,?,?,?)', entries)
 
                 tmp_prev_object = self.object_prev_vector
                 tmp_spatial = self.spatial_prev_vector
@@ -215,9 +241,15 @@ class SegmentLabel(object):
 
         else:
             for curr_frame in curr_list:
+
                 ann_table = Counter()
+                entries = []
                 for item in curr_frame:
                     ann_table[item['label']] += 1
+                    temp_entry = (self.initial_frame[0]['frameName'], item['frameName'], None, None, None, item['label'], str(ann_table[item['label']]), item['prob'], None)
+                    entries.append(temp_entry)
+
+                c.executemany('INSERT INTO seglab VALUES (?,?,?,?,?,?,?,?,?)', entries)
 
                 tmp_prev_object = self.object_prev_vector
                 tmp_spatial = self.spatial_prev_vector
@@ -239,8 +271,13 @@ class SegmentLabel(object):
 
                 last_frame = curr_frame
 
+        # c.close()
+        self.conn.commit()
         return json.dumps(frame_list)
 
+
+    def updateDB(self):
+        pass
 
     def resultFigure(self):
         pass

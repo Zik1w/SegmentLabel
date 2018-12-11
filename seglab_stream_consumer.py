@@ -22,8 +22,11 @@ This tests fetching a stream of generalized objects provided by
 test_generalized_object_stream_producer (which must be running).
 """
 
+import traceback
+import sys
 import time
 import json
+import argparse
 
 from SegmentLabel import SegmentLabel
 from pyndn import Face
@@ -46,19 +49,24 @@ def main(index_f, weight_f):
 
     stream_consumer = Namespace("/ndn/eb/stream/run/28/annotations")
     # stream = Namespace('/eb/proto/test/ml_processing/yolo')
-    stream_consumer.setFace(face)
+    stream_consumer.setFace(face_consumer)
 
     def onNewObject(sequenceNumber, contentMetaInfo, objectNamespace):
-        dump("Got generalized object, sequenceNumber", sequenceNumber,
-             ", content-type", contentMetaInfo.getContentType(), ":",
-             str(objectNamespace.obj))
+        # dump("Got generalized object, sequenceNumber", sequenceNumber,
+        #      ", content-type", contentMetaInfo.getContentType(), ":",
+        #      str(objectNamespace.obj))
+
+        print(objectNamespace.obj)
 
         ann = json.loads(objectNamespace.obj)
         segment_result = sl.sceneDetection(ann)
 
+        if not segment_result:
+            dump("no new scene detected!")
+
         dump("Got generalized object, sequenceNumber", sequenceNumber,
              ", content-type", contentMetaInfo.getContentType(), ":",
-             str(ann))
+             str(segment_result))
 
     pipelineSize = 10
     stream_consumer.setHandler(
@@ -71,8 +79,8 @@ def main(index_f, weight_f):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Parse command line args for ndn consumer and segment algorithm')
-    parser.add_argument("-i", "--object index", dest='indexFile', type="str", default="seglab_config/object_label.csv", help='object index file')
-    parser.add_argument("-w", "--object weights", dest='weightFile', type="str", default="seglab_config/object_weight.csv", help='object weight file')
+    parser.add_argument("-i", "--object index", dest='indexFile', nargs='?', const=1, type=str, default="seglab_config/object_label.csv", help='object index file')
+    parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="seglab_config/object_weight.csv", help='object weight file')
 
     args = parser.parse_args()
 
