@@ -18,24 +18,24 @@ def main():
     object_list = []
     encoding_vector = {}
     weight_vector = {}
-    with open('config/object_weight.csv', newline='') as csvfile:
+    with open('../config/object_weight.csv', newline='') as csvfile:
         reader1 = csv.DictReader(csvfile)
         encoding_vector = objectEncodingVector(reader1)
             # encoding_vector[row['label']] = row['Number']
             # weight_vector[row['label']] = row['Weight']
             # print(row['label'], row['number'])
 
-    with open('config/object_weight.csv', newline='') as csvfile:
+    with open('../config/object_weight.csv', newline='') as csvfile:
         reader2 = csv.DictReader(csvfile)
         for row in reader2:
             print(row['label'])
             object_list.append(row['label'])
 
-    with open('config/object_weight.csv', newline='') as csvfile:
+    with open('../config/object_weight.csv', newline='') as csvfile:
         reader3 = csv.DictReader(csvfile)
         weight_vector = objectWeightVector(reader3)
 
-    jsonString = "data/matrix.json"
+    jsonString = "../data/faith.json"
     curr = []
     for line in open(jsonString, 'r'):
         curr.append(json.loads(line))
@@ -108,7 +108,7 @@ def main():
             last_frame = k
 
     # print(frame_list)
-    with open('data/yolo.json', 'w') as outfile:
+    with open('../data/yolo.json', 'w') as outfile:
         json.dump(frame_list, outfile)
 
     y = list(range(0, 80))
@@ -135,6 +135,7 @@ def main():
 
 
     plt.imshow(figure_3)
+    plt.xlim((0,600))
     plt.yticks(y, object_list_2,fontsize = 2.5)
     plt.colorbar(shrink=0.5)
     plt.xlabel('frame')
@@ -198,115 +199,6 @@ def segmentDetection(f_table, a_table):
 
     # objs = deepcopy([k for k in temp if item["label"] in k.itervalues()])
     # print(objs)
-
-
-    '''
-        if s:
-        while True:
-            try:
-                jsonString = "yolo.filtered"
-                curr = json.loads(jsonString)
-
-                hist = entr.find_one({"oid": curr["timestamp"]})
-                entry = {"oid": curr["timestamp"], "name": curr["frameName"], "objects": [], "labels": []}
-            except:
-                print("json parsing failed: "+str(sys.exc_info()[0]))
-                print("failed json string: "+jsonString)
-                continue
-
-            temp = []
-            seen = []
-
-            numbered = []
-
-            if hist != None:
-                for j in hist["objects"]:
-                    j["label"] = ''.join([i for i in j["label"] if not i.isdigit()])
-                    temp.append(j)
-
-            for k in curr["annotations"]:
-                temp.append({"label": ''.join([i for i in k["label"] if not i.isdigit()]), "ytop":k["ytop"], "ybottom":k["ybottom"], "xleft":k["xleft"], "xright":k["xright"], "prob":k["prob"]})
-
-            for item in temp:
-                if item["label"] in seen:
-                    continue
-
-                seen.append(item["label"])
-                objs = deepcopy([k for k in temp if item["label"] in k.itervalues()])
-
-                srtd = sorted(objs, key = lambda k: k["prob"])
-
-                for ind, obj in enumerate(srtd):
-                    obj["label"] = obj["label"] + str(ind)
-                    numbered.append(obj["label"])
-                    #numprobs[obj["label"]] = obj["prob"]
-                    entry["objects"].append(obj)
-
-            entry["labels"] = numbered
-
-            if hist != None:
-                entr.replace_one({"oid": curr["timestamp"]}, entry)
-            else:
-                entr.insert_one(entry)
-
-            """
-            query = {"$in": []}
-            for elem in numbered:
-                query["$in"].append(elem.encode("utf-8"))
-            query = {"labels": query}
-            #t1 = timestampMs()
-            cursor = entr.aggregate(
-                [{"$match": query},
-                {"$unwind": "$labels"},
-                {"$match": query},
-                {"$group": {
-                    "_id":"$_id",
-                    "matches": {"$sum":1}
-                }},
-                {"$sort": {"matches": -1}}]
-            )
-            #t2 = timestampMs()
-            #print(t2-t1)
-            count = 0
-            pairs = {}
-            for document in cursor: 
-                if count > 15:
-                    continue
-                curs = entr.find_one({"_id": document["_id"]})
-                currobjs = curs["objects"]
-                probs = []
-                for key, value in numprobs.iteritems():
-                    for currobj in currobjs:
-                        if currobj["label"] == key:
-                            probs.append(float(currobj["prob"]) * float(value))
-                if len(probs) > 0:
-                    pairs[curs["name"]] = sum(probs)
-                count = count + 1
-            sortedpairs = sorted(pairs.items(), key=operator.itemgetter(1))
-            sortedpairs.reverse()
-            top3 = sortedpairs[:3]
-            top3 = [i[0] for i in top3]
-            print(top3)
-            """
-
-    else:
-        print(" > failed to open nanomsg pipe: ipc://"+pipeName)
-    '''
-
-
-    '''
-    #check for the probability of all common items
-
-    #label using the name of the three most common items through all the annotation
-
-    #give a maximum amount of timestamp interval between two segment?
-
-    #once a new
-
-    #create a default segement label called transition to handle unresolved cases
-
-
-    '''
 
 
 

@@ -143,7 +143,7 @@ def dump(*list):
 
 def main():
     # The default Face will connect using a Unix socket, or to "localhost".
-    face = Face()
+    face_producer = Face()
 
     # Create an in-memory key chain with default keys.
     keyChain = KeyChain("pib-memory:", "tpm-memory:")
@@ -151,21 +151,21 @@ def main():
       (Name("/testname/KEY/123"),
        Blob(DEFAULT_RSA_PRIVATE_KEY_DER, False),
        Blob(DEFAULT_RSA_PUBLIC_KEY_DER, False)))
-    face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
+    face_producer.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
     # Use default keys
     # keyChain = KeyChain()
     # face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
 
-    publishIntervalMs = 1000.0 * 1
-    stream = Namespace("/ndn/eb/stream/run/28/annotations", keyChain)
+    publishIntervalMs = 1000.0 / 1
+    stream_producer = Namespace("'/eb/proto/test/ml_processing/yolo/seglab", keyChain)
     handler = GeneralizedObjectStreamHandler()
-    stream.setHandler(handler)
+    stream_producer.setHandler(handler)
 
     dump("Register prefix", stream.name)
     # Set the face and register to receive Interests.
-    stream.setFace(face,
+    stream_producer.setFace(face_producer,
       lambda prefixName: dump("Register failed for prefix", prefixName))
 
     # Loop, producing a new object every previousPublishMs milliseconds (and
@@ -175,50 +175,42 @@ def main():
 
 
     #test with publishing existing jason file by json string input
+    # jsonString = "data/faith.json"
+    # curr = []
+    # for line in open(jsonString, 'r'):
+    #     curr.append(json.loads(line))
+    #
+    # curr_list = []
+    # for ann in curr:
+    #     temp = []
+    #     frameName = ann['frameName']
+    #     # print(frameName)
+    #     for k in ann["annotations"]:
+    #         # temp.append({"label": ''.join([i for i in k["label"] if not i.isdigit()]), "prob": k["prob"]})
+    #         temp.append({"label": ''.join([i for i in k["label"] if not i.isdigit()]), "ytop": k["ytop"],
+    #                      "ybottom": k["ybottom"], "xleft": k["xleft"], "xright": k["xright"], "prob": k["prob"],
+    #                      "frameName": frameName})
+    #
+    #     curr_list.append(temp)
+    #
+    # total_cnt = len(curr_list)
 
-    # jsonString = "data/" + jsonFile
-    jsonString = "data/faith.json"
-    curr = []
-    for line in open(jsonString, 'r'):
-        curr.append(json.loads(line))
-
-    curr_list = []
-    for ann in curr:
-        temp = []
-        frameName = ann['frameName']
-        # print(frameName)
-        for k in ann["annotations"]:
-            # temp.append({"label": ''.join([i for i in k["label"] if not i.isdigit()]), "prob": k["prob"]})
-            temp.append({"label": ''.join([i for i in k["label"] if not i.isdigit()]), "ytop": k["ytop"],
-                         "ybottom": k["ybottom"], "xleft": k["xleft"], "xright": k["xright"], "prob": k["prob"],
-                         "frameName": frameName})
-
-        curr_list.append(temp)
-
-    total_cnt = len(curr_list)
-
-    cnt = 0
-    # while True:
-    while cnt < total_cnt:
+    while True:
         now = Common.getNowMilliseconds()
         if now >= previousPublishMs + publishIntervalMs:
-            # dump("Preparing data for sequence",
-            #      Name.Component.fromSequenceNumber(handler.getProducedSequenceNumber() + 1))
             dump("Preparing data for sequence",
                 handler.getProducedSequenceNumber() + 1)
-            dump("Current json string index: ", cnt)
-            dump("Current json string: ", curr_list[cnt])
-
 
             handler.addObject(
                 Blob(json.dumps(curr_list[cnt])),
                 "application/json")
 
-            # handler.addObject(
-            #     Blob(json.dumps(curr_list[cnt]) + str(handler.getProducedSequenceNumber() + 1)),
-            #     "application/json")
+            handler.addObject(
+                Blob(json.dumps() + str(handler.getProducedSequenceNumber() + 1)),
+                "application/json")
 
             cnt+= 1
+
             previousPublishMs = now
 
         face.processEvents()

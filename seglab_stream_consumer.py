@@ -41,14 +41,15 @@ def dump(*list):
         result += (element if type(element) is str else str(element)) + " "
     print(result)
 
-def main(index_f, weight_f):
+# def main(index_f, weight_f):
+def main():
     # The default Face will connect using a Unix socket, or to "localhost".
-    sl = SegmentLabel(index_f, weight_f)
+    # sl = SegmentLabel(index_f, weight_f)
 
     face_consumer = Face()
 
-    stream_consumer = Namespace("/ndn/eb/stream/run/28/annotations")
-    # stream = Namespace('/eb/proto/test/ml_processing/yolo')
+    # stream_consumer = Namespace("/ndn/eb/stream/run/28/annotations")
+    stream_consumer = Namespace('/eb/proto/test/ml_processing/yolo')
     stream_consumer.setFace(face_consumer)
 
     def onNewObject(sequenceNumber, contentMetaInfo, objectNamespace):
@@ -56,17 +57,23 @@ def main(index_f, weight_f):
         #      ", content-type", contentMetaInfo.getContentType(), ":",
         #      str(objectNamespace.obj))
 
-        print(objectNamespace.obj)
+        ann = json.loads(str(objectNamespace.obj))
+        print(ann)
 
-        ann = json.loads(objectNamespace.obj)
-        segment_result = sl.sceneDetection(ann)
+        if not ann["error"]:
+            segment_result = sl.sceneDetection(ann)
+            dump("Got generalized object, sequenceNumber", sequenceNumber,
+                  ", content-type", contentMetaInfo.getContentType(), ":",
+                  str(segment_result))
 
-        if not segment_result:
-            dump("no new scene detected!")
-
-        dump("Got generalized object, sequenceNumber", sequenceNumber,
-             ", content-type", contentMetaInfo.getContentType(), ":",
-             str(segment_result))
+        # segment_result = sl.sceneDetection(ann)
+        #
+        # if not segment_result:
+        #     dump("no new scene detected!")
+        # else:
+        #     dump("Got generalized object, sequenceNumber", sequenceNumber,
+        #          ", content-type", contentMetaInfo.getContentType(), ":",
+        #          str(segment_result))
 
     pipelineSize = 10
     stream_consumer.setHandler(
@@ -88,6 +95,7 @@ if __name__ == "__main__":
         index_file = args.indexFile
         weight_file = args.weightFile
         main(index_file, weight_file)
+        main()
 
     except:
         traceback.print_exc(file=sys.stdout)
