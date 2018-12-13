@@ -28,10 +28,13 @@ import time
 import json
 import argparse
 
+
 from SegmentLabel import SegmentLabel
 from pyndn import Face
 from pycnl import Namespace
 from pycnl.generalized_object import GeneralizedObjectStreamHandler
+from pyndn.util import Blob
+from pyndn.security import KeyChain, SafeBag
 
 
 
@@ -45,48 +48,64 @@ def main(index_f, weight_f):
     # The default Face will connect using a Unix socket, or to "localhost".
     sl = SegmentLabel(index_f, weight_f)
 
-    face_consumer = Face()
+    face = Face()
+    keyChain = KeyChain()
+    face_consumer.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
     # stream_consumer = Namespace("/ndn/eb/stream/run/28/annotations")
-    stream_consumer = Namespace('/eb/proto/test/ml_processing/yolo')
-    stream_consumer.setFace(face_consumer)
+    stream_annConsumer = Namespace('/eb/proto/test/ml_processing/yolo')
+    stream_annConsumer.setFace(face)
 
-    def onNewObject(sequenceNumber, contentMetaInfo, objectNamespace):
-        # dump("Got generalized object, sequenceNumber", sequenceNumber,
-        #      ", content-type", contentMetaInfo.getContentType(), ":",
-        #      str(objectNamespace.obj))
+    stream_segProducer = Namespace("/eb/proto/test/ml_processing/yolo/seglab", keyChain)
+    publish_handler = GeneralizedObjectStreamHandler()
+    stream_segProducer.setHandler(publish_handler)
+
+    stream_segProducer.setFace(face,
+        lambda prefixName: dump("Register failed for prefix", prefixName),
+        lambda prefixName, whatever: dump("Register success for prefix", prefixName))
+
+    def onNewAnnotation(sequenceNumber, contentMetaInfo, objectNamespace):
 
         ann = json.loads(str(objectNamespace.obj))
-        print(ann)
 
-        if not ann["error"]:
+        if not "error" in ann:
             segment_result = sl.sceneDetection(ann)
-            dump("Got generalized object, sequenceNumber", sequenceNumber,
-                  ", content-type", contentMetaInfo.getContentType(), ":",
-                  str(segment_result))
+            # print(segment_result)
+            if segment_result and len(segment_result) > 0:
+                dump("Got generalized object, sequenceNumber", sequenceNumber,
+                     ", content-type", contentMetaInfo.getContentType(), ":",
+                     str(time.time()))
 
-        # segment_result = sl.sceneDetection(ann)
+                # dump(time.time(), "Publish scene HERE")
+                # dump(time.time(), "publishing scene (segment)",
+                #     publish_handler.getProducedSequenceNumber() + 1)
+                publish_handler.addObject(
+                    Blob(segment_result),
+                    "application/json")
+                print("PUBLISHED")
+
+        # ann = json.loads(str(objectNamespace.obj))
+        # print(ann)
         #
-        # if not segment_result:
-        #     dump("no new scene detected!")
-        # else:
+        # if not ann["error"]:
+        #     segment_result = sl.sceneDetection(ann)
         #     dump("Got generalized object, sequenceNumber", sequenceNumber,
-        #          ", content-type", contentMetaInfo.getContentType(), ":",
-        #          str(segment_result))
+        #           ", content-type", contentMetaInfo.getContentType(), ":",
+        #           str(segment_result))
 
     pipelineSize = 10
-    stream_consumer.setHandler(
-      GeneralizedObjectStreamHandler(pipelineSize, onNewObject)).objectNeeded()
+    stream_annConsumer.setHandler(
+      GeneralizedObjectStreamHandler(pipelineSize, onNewAnnotation)).objectNeeded()
 
     while True:
-        face_consumer.processEvents()
+        face.processEvents()
         # We need to sleep for a few milliseconds so we don't use 100% of the CPU.
         time.sleep(0.01)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Parse command line args for ndn consumer and segment algorithm')
-    parser.add_argument("-i", "--object index", dest='indexFile', nargs='?', const=1, type=str, default="seglab_config/object_label.csv", help='object index file')
-    parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="seglab_config/object_weight.csv", help='object weight file')
+    parser.add_argument("-i", "--object index", dest='indexFile', nargs='?', const=1, type=str, default="config/object_label.csv", help='object index file')
+    parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="config/object_weight.csv", help='object weight file')
 
     args = parser.parse_args()
 

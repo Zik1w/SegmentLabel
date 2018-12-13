@@ -132,11 +132,11 @@ class SegmentLabel(object):
 
 
 
-    ##TODO:extract more information
+    ##change to add more information to send to playdetect
     def labeling(self, first, last, table):
-        data_object = {"labels": [], "start": first["frameName"], "end": last["frameName"]}
+        data_object = {"info": [], "start": first["frameName"], "end": last["frameName"]}
         for k, v in table.items():
-            data_object["labels"].append({"item": k, "frequency": v})
+            data_object["info"].append({"label": k, "frequency": v})
         # data_json = json.dumps(data_object)
         # print(data_object)
         return data_object
