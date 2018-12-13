@@ -41,10 +41,9 @@ def dump(*list):
         result += (element if type(element) is str else str(element)) + " "
     print(result)
 
-# def main(index_f, weight_f):
-def main():
+def main(index_f, weight_f):
     # The default Face will connect using a Unix socket, or to "localhost".
-    # sl = SegmentLabel(index_f, weight_f)
+    sl = SegmentLabel(index_f, weight_f)
 
     face_consumer = Face()
 

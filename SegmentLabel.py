@@ -134,7 +134,6 @@ class SegmentLabel(object):
 
     ##TODO:extract more information
     def labeling(self, first, last, table):
-        print(table)
         data_object = {"labels": [], "start": first["frameName"], "end": last["frameName"]}
         for k, v in table.items():
             data_object["labels"].append({"item": k, "frequency": v})
@@ -197,7 +196,6 @@ class SegmentLabel(object):
             ann = self.initial_frame["annotations"]
             for item in ann:
                 anno_table[item['label']] += 1
-                # print(self.initial_frame[0]['frameName'], item['frameName'], item['label'],str(frame_info[item['label']]))
                 temp_entry = (self.initial_frame['frameName'], self.initial_frame['frameName'], None, None, None, item['label'], str(anno_table[item['label']]), item['prob'], None)
                 entries.append(temp_entry)
 
@@ -278,7 +276,11 @@ class SegmentLabel(object):
 
         # c.close()
         self.conn.commit()
-        return json.dumps(frame_list)
+        if frame_list:
+            return json.dumps(frame_list)
+        else:
+            # print("no scene change detected!")
+            return []
 
     def readConfig(self, config_file):
         if config_file:

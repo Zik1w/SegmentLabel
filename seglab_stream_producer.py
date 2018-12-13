@@ -25,6 +25,12 @@ This registers with the local NFD to produce a stream of generalized object
 
 import time
 import json
+import traceback
+import sys
+import argparse
+
+from SegmentLabel import SegmentLabel
+
 from pyndn import Name, Face
 from pyndn.util import Blob
 from pyndn.util.common import Common
@@ -141,7 +147,9 @@ def dump(*list):
         result += (element if type(element) is str else str(element)) + " "
     print(result)
 
-def main():
+def main(index_f, weight_f):
+    sl = SegmentLabel(index_f, weight_f)
+
     # The default Face will connect using a Unix socket, or to "localhost".
     face_producer = Face()
 
@@ -158,12 +166,14 @@ def main():
     # face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
 
-    publishIntervalMs = 1000.0 / 1
-    stream_producer = Namespace("'/eb/proto/test/ml_processing/yolo/seglab", keyChain)
+    publishIntervalMs = 1000.0 / 10
+    # stream_producer = Namespace("/ndn/eb/stream/run/28/annotation", keyChain)
+
+    stream_producer = Namespace("/eb/proto/test/ml_processing/yolo/seglab", keyChain)
     handler = GeneralizedObjectStreamHandler()
     stream_producer.setHandler(handler)
 
-    dump("Register prefix", stream.name)
+    dump("Register prefix", stream_producer.name)
     # Set the face and register to receive Interests.
     stream_producer.setFace(face_producer,
       lambda prefixName: dump("Register failed for prefix", prefixName))
@@ -175,11 +185,11 @@ def main():
 
 
     #test with publishing existing jason file by json string input
-    # jsonString = "data/faith.json"
-    # curr = []
-    # for line in open(jsonString, 'r'):
-    #     curr.append(json.loads(line))
-    #
+    jsonString = "data/faith.json"
+    curr = []
+    for line in open(jsonString, 'r'):
+        curr.append(json.loads(line))
+
     # curr_list = []
     # for ann in curr:
     #     temp = []
@@ -192,42 +202,51 @@ def main():
     #                      "frameName": frameName})
     #
     #     curr_list.append(temp)
-    #
-    # total_cnt = len(curr_list)
 
-    while True:
+    cnt = 0
+    total_cnt = len(curr)
+    # while True:
+    while cnt < total_cnt:
         now = Common.getNowMilliseconds()
+
         if now >= previousPublishMs + publishIntervalMs:
             dump("Preparing data for sequence",
                 handler.getProducedSequenceNumber() + 1)
 
-            handler.addObject(
-                Blob(json.dumps(curr_list[cnt])),
-                "application/json")
+            seg_result = sl.processAnnotation(curr[cnt])
+
+            if seg_result:
+                print(seg_result)
 
             handler.addObject(
-                Blob(json.dumps() + str(handler.getProducedSequenceNumber() + 1)),
+                Blob(json.dumps(seg_result)),
                 "application/json")
+
+            # handler.addObject(
+            #     Blob(json.dumps() + str(handler.getProducedSequenceNumber() + 1)),
+            #     "application/json")
 
             cnt+= 1
 
             previousPublishMs = now
 
-        face.processEvents()
+        face_producer.processEvents()
         # We need to sleep for a few milliseconds so we don't use 100% of the CPU.
         time.sleep(0.01)
 
-# if __name__ == '__main__':
-#     parser = argparse.ArgumentParser(description='Parse command line args for ndn producer')
-#     parser.add_argument("-d", "--objectFile", required=True, help='object file to publish')
-#
-#     args = parser.parse_args()
-#
-#     try:
-#         datafile = args.objectFile
-#         main(datafile)
-#     except:
-#         traceback.print_exc(file=sys.stdout)
-#         sys.exit(1)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Parse command line args for ndn consumer and segment algorithm')
+    parser.add_argument("-i", "--object index", dest='indexFile', nargs='?', const=1, type=str, default="seglab_config/object_label.csv", help='object index file')
+    parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="seglab_config/object_weight.csv", help='object weight file')
 
-main()
+    args = parser.parse_args()
+
+    try:
+        index_file = args.indexFile
+        weight_file = args.weightFile
+        main(index_file, weight_file)
+
+    except:
+        traceback.print_exc(file=sys.stdout)
+        print("Error parsing command line arguments")
+        sys.exit(1)
