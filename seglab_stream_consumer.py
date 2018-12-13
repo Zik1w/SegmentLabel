@@ -52,8 +52,8 @@ def main(index_f, weight_f):
     keyChain = KeyChain()
     face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
-    # stream_consumer = Namespace("/ndn/eb/stream/run/28/annotations")
-    stream_annConsumer = Namespace('/eb/proto/test/ml_processing/yolo')
+    stream_annConsumer = Namespace("/ndn/eb/stream/run/28/annotations")
+    # stream_annConsumer = Namespace('/eb/proto/test/ml_processing/yolo')
     stream_annConsumer.setFace(face)
 
     stream_segProducer = Namespace("/eb/proto/test/ml_processing/yolo/seglab", keyChain)
@@ -67,6 +67,8 @@ def main(index_f, weight_f):
     def onNewAnnotation(sequenceNumber, contentMetaInfo, objectNamespace):
 
         ann = json.loads(str(objectNamespace.obj))
+
+        # print(ann)
 
         if not "error" in ann:
             segment_result = sl.sceneDetection(ann)

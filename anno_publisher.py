@@ -158,7 +158,7 @@ def main():
     # face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
 
-    publishIntervalMs = 1000.0 * 1
+    publishIntervalMs = 1000.0 / 30
     stream = Namespace("/ndn/eb/stream/run/28/annotations", keyChain)
     handler = GeneralizedObjectStreamHandler()
     stream.setHandler(handler)
@@ -180,19 +180,19 @@ def main():
     for line in open(jsonString, 'r'):
         curr.append(json.loads(line))
 
-    curr_list = []
-    for ann in curr:
-        temp = []
-        frameName = ann['frameName']
-        for k in ann["annotations"]:
-            # temp.append({"label": ''.join([i for i in k["label"] if not i.isdigit()]), "prob": k["prob"]})
-            temp.append({"label": ''.join([i for i in k["label"] if not i.isdigit()]), "ytop": k["ytop"],
-                         "ybottom": k["ybottom"], "xleft": k["xleft"], "xright": k["xright"], "prob": k["prob"],
-                         "frameName": frameName})
+    # curr_list = []
+    # for ann in curr:
+    #     temp = []
+    #     frameName = ann['frameName']
+    #     for k in ann["annotations"]:
+    #         # temp.append({"label": ''.join([i for i in k["label"] if not i.isdigit()]), "prob": k["prob"]})
+    #         temp.append({"label": ''.join([i for i in k["label"] if not i.isdigit()]), "ytop": k["ytop"],
+    #                      "ybottom": k["ybottom"], "xleft": k["xleft"], "xright": k["xright"], "prob": k["prob"],
+    #                      "frameName": frameName})
+    #
+    #     curr_list.append(temp)
 
-        curr_list.append(temp)
-
-    total_cnt = len(curr_list)
+    total_cnt = len(curr)
 
     cnt = 0
     while cnt < total_cnt:
