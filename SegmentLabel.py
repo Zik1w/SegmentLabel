@@ -191,7 +191,6 @@ class SegmentLabel(object):
 
         last_frame = []
         anno_table = Counter()
-        frame_list = []
         if not self.initilized:
 
             self.initial_frame = curr_list
@@ -272,7 +271,7 @@ class SegmentLabel(object):
 
             ##detect scene change
             if self.thresold_check(self.dissimiliarityVector(self.object_var_vector, tmp_prev_object, self.temporal_var_vector, tmp_spatial, tmp_temporal, self.spatial_prev_vector)):
-                frame_list.append(self.labeling(self.initial_frame, curr_frame, self.frame_info))
+                sceneSeg = self.labeling(self.initial_frame, curr_frame, self.frame_info)
                 self.seg_num += 1
                 self.initial_frame = curr_frame
                 self.frame_info = anno_table
@@ -281,8 +280,8 @@ class SegmentLabel(object):
 
         # c.close()
         self.conn.commit()
-        if frame_list:
-            return json.dumps(frame_list)
+        if sceneSeg:
+            return json.dumps(sceneSeg)
         else:
             # print("no scene change detected!")
             return []

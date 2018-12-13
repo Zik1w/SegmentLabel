@@ -201,8 +201,10 @@ def main():
             dump("Preparing data for sequence",
                 handler.getProducedSequenceNumber() + 1)
 
+            print(curr[cnt])
+
             handler.addObject(
-                Blob(json.dumps(curr_list[cnt])),
+                Blob(json.dumps(curr[cnt])),
                 "application/json")
 
             # handler.addObject(
