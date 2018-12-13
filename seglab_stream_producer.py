@@ -154,11 +154,11 @@ def main(index_f, weight_f):
     face_producer = Face()
 
     # Create an in-memory key chain with default keys.
-    keyChain = KeyChain("pib-memory:", "tpm-memory:")
-    keyChain.importSafeBag(SafeBag
-      (Name("/testname/KEY/123"),
-       Blob(DEFAULT_RSA_PRIVATE_KEY_DER, False),
-       Blob(DEFAULT_RSA_PUBLIC_KEY_DER, False)))
+    keyChain = KeyChain() # ("pib-memory:", "tpm-memory:")
+    # keyChain.importSafeBag(SafeBag
+    #   (Name("/testname/KEY/123"),
+    #    Blob(DEFAULT_RSA_PRIVATE_KEY_DER, False),
+    #    Blob(DEFAULT_RSA_PUBLIC_KEY_DER, False)))
     face_producer.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
     # Use default keys
@@ -166,10 +166,10 @@ def main(index_f, weight_f):
     # face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
 
-    publishIntervalMs = 1000.0 / 10
+    publishIntervalMs = 1000.0 / 30
     # stream_producer = Namespace("/ndn/eb/stream/run/28/annotation", keyChain)
 
-    stream_producer = Namespace("/eb/proto/test/ml_processing/yolo/seglab", keyChain)
+    stream_producer = Namespace("/eb/proto/test/ml_processing/yolo", keyChain)
     handler = GeneralizedObjectStreamHandler()
     stream_producer.setHandler(handler)
 
@@ -213,18 +213,22 @@ def main(index_f, weight_f):
             dump("Preparing data for sequence",
                 handler.getProducedSequenceNumber() + 1)
 
-            seg_result = sl.processAnnotation(curr[cnt])
+            # seg_result = sl.processAnnotation(curr[cnt])
 
-            if seg_result:
-                print(seg_result)
+            # if seg_result:
+            #     print(seg_result)
 
-            handler.addObject(
-                Blob(json.dumps(seg_result)),
-                "application/json")
+            # handler.addObject(
+            #     Blob(json.dumps(seg_result)),
+            #     "application/json")
 
             # handler.addObject(
             #     Blob(json.dumps() + str(handler.getProducedSequenceNumber() + 1)),
             #     "application/json")
+            
+            handler.addObject(
+                Blob(json.dumps(curr[cnt])),
+                "application/json")
 
             cnt+= 1
 
@@ -236,8 +240,8 @@ def main(index_f, weight_f):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parse command line args for ndn consumer and segment algorithm')
-    parser.add_argument("-i", "--object index", dest='indexFile', nargs='?', const=1, type=str, default="seglab_config/object_label.csv", help='object index file')
-    parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="seglab_config/object_weight.csv", help='object weight file')
+    parser.add_argument("-i", "--object index", dest='indexFile', nargs='?', const=1, type=str, default="config/object_label.csv", help='object index file')
+    parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="config/object_weight.csv", help='object weight file')
 
     args = parser.parse_args()
 

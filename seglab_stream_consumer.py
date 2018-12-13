@@ -30,6 +30,8 @@ import argparse
 
 from SegmentLabel import SegmentLabel
 from pyndn import Face
+from pyndn.util import Blob
+from pyndn.security import KeyChain
 from pycnl import Namespace
 from pycnl.generalized_object import GeneralizedObjectStreamHandler
 
@@ -46,10 +48,20 @@ def main(index_f, weight_f):
     sl = SegmentLabel(index_f, weight_f)
 
     face_consumer = Face()
+    keyChain = KeyChain()
+    face_consumer.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
     # stream_consumer = Namespace("/ndn/eb/stream/run/28/annotations")
     stream_consumer = Namespace('/eb/proto/test/ml_processing/yolo')
     stream_consumer.setFace(face_consumer)
+
+    stream_producer = Namespace("/eb/proto/test/ml_processing/yolo/seglab", keyChain)
+    publish_handler = GeneralizedObjectStreamHandler()
+    stream_producer.setHandler(publish_handler)
+
+    stream_producer.setFace(face_consumer,
+      lambda prefixName: dump("Register failed for prefix", prefixName),
+      lambda prefixName, whatever: dump("Register success for prefix", prefixName))
 
     def onNewObject(sequenceNumber, contentMetaInfo, objectNamespace):
         # dump("Got generalized object, sequenceNumber", sequenceNumber,
@@ -57,18 +69,24 @@ def main(index_f, weight_f):
         #      str(objectNamespace.obj))
 
         ann = json.loads(str(objectNamespace.obj))
-        print(ann)
+        # print("got annotation")
 
-        if not ann["error"]:
+        if not "error" in ann:
+            # print("before detection")
             segment_result = sl.sceneDetection(ann)
-            dump("Got generalized object, sequenceNumber", sequenceNumber,
-                  ", content-type", contentMetaInfo.getContentType(), ":",
-                  str(segment_result))
-
-        # segment_result = sl.sceneDetection(ann)
-        #
-        # if not segment_result:
-        #     dump("no new scene detected!")
+            # dump("Got generalized object, sequenceNumber", sequenceNumber,
+            #       ", content-type", contentMetaInfo.getContentType(), ":")
+                    #,str(segment_result))
+            # print(segment_result)
+            if segment_result and len(segment_result) > 0:
+                dump(time.time(), "Publish scene HERE")
+                dump(time.time(), "publishing scene (segment)",
+                    publish_handler.getProducedSequenceNumber() + 1)
+                publish_handler.addObject(
+                    Blob(segment_result),
+                    "application/json")
+                print("PUBLISHED")
+            # 
         # else:
         #     dump("Got generalized object, sequenceNumber", sequenceNumber,
         #          ", content-type", contentMetaInfo.getContentType(), ":",
@@ -79,14 +97,15 @@ def main(index_f, weight_f):
       GeneralizedObjectStreamHandler(pipelineSize, onNewObject)).objectNeeded()
 
     while True:
+        # print("test")
         face_consumer.processEvents()
         # We need to sleep for a few milliseconds so we don't use 100% of the CPU.
         time.sleep(0.01)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Parse command line args for ndn consumer and segment algorithm')
-    parser.add_argument("-i", "--object index", dest='indexFile', nargs='?', const=1, type=str, default="seglab_config/object_label.csv", help='object index file')
-    parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="seglab_config/object_weight.csv", help='object weight file')
+    parser.add_argument("-i", "--object index", dest='indexFile', nargs='?', const=1, type=str, default="config/object_label.csv", help='object index file')
+    parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="config/object_weight.csv", help='object weight file')
 
     args = parser.parse_args()
 

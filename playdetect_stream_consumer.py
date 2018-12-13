@@ -45,22 +45,52 @@ def main(index_f, weight_f):
     # pd = PlayDetect(index_f, weight_f)
 
     face_consumer = Face()
+    keyChain = KeyChain()
+    face_consumer.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
     # stream_consumer = Namespace("/ndn/eb/stream/run/28/annotation")
     stream_consumer = Namespace('/eb/proto/test/ml_processing/yolo/seglab')
     stream_consumer.setFace(face_consumer)
 
+    annotationsStream = Namespace('/eb/proto/test/ml_processing/yolo')
+    annotationsStream.setFace(face_consumer)
+
+    playdetectProducer = Namespace('/eb/playdetect/segments')
+    playdSegmentsHandler = GeneralizedObjectStreamHandler()
+    playdetectProducer.setHandler(playdSegmentsHandler)
+
+    playdetectProducer.setFace(face_consumer,
+      lambda prefixName: dump("Register failed for prefix", prefixName),
+      lambda prefixName, whatever: dump("Register success for prefix", prefixName))
+
     def onNewObject(sequenceNumber, contentMetaInfo, objectNamespace):
-        dump("Got generalized object, sequenceNumber", sequenceNumber,
-             ", content-type", contentMetaInfo.getContentType(), ":",
-             str(objectNamespace.obj))
+        dump("Got scene (segment) :", str(objectNamespace.obj))
 
         if str(objectNamespace.obj):
-            # seglabs = json.loads(objectNamespace.obj)
+            # TBD
+            # Store scene segment AND scene segment NAME into a database
+            sceneSegmentName = objectNamespace.getName()
+            sceneSegment = json.loads(objectNamespace.obj)
+            storeToDatabase(sceneSegment)
 
-            dump("Got generalized object, sequenceNumber", sequenceNumber,
-                 ", content-type", contentMetaInfo.getContentType(), ":",
-                 str(objectNamespace.obj))
+    def onNewAnnotation(sequenceNumber, contentMetaInfo, objectNamespace):
+        dump("Got new annotation:", str(objectNamespace.obj))
+
+        if str(objectNamespace.obj):
+            # TBD
+            # query interval configurable
+            if itIsTimeToQueryDatabase:
+                # TBD
+                # run query against the databse, using recevied annotation
+                # the result should be a list that contains scene segment names (see above)
+                # FOR NOW: let's have startFrame end endFrame in the results
+                # most likely -- parameterize query, i.e. give argument maxResultNum
+                result = doQuery(str(objectNamespace.obj))
+                if result is GOOD:
+                    playdSegmentsHandler.addObject(
+                        Blob(json.dumps(result)),
+                        "application/json")
+
 
     pipelineSize = 10
     stream_consumer.setHandler(
@@ -73,8 +103,8 @@ def main(index_f, weight_f):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Parse command line args for ndn consumer and segment algorithm')
-    parser.add_argument("-i", "--object index", dest='indexFile', nargs='?', const=1, type=str, default="seglab_config/object_label.csv", help='object index file')
-    parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="seglab_config/object_weight.csv", help='object weight file')
+    parser.add_argument("-i", "--object index", dest='indexFile', nargs='?', const=1, type=str, default="config/object_label.csv", help='object index file')
+    parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="config/object_weight.csv", help='object weight file')
 
     args = parser.parse_args()
 
