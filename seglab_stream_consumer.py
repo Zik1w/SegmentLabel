@@ -50,7 +50,7 @@ def main(index_f, weight_f):
 
     face = Face()
     keyChain = KeyChain()
-    face_consumer.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
+    face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
     # stream_consumer = Namespace("/ndn/eb/stream/run/28/annotations")
     stream_annConsumer = Namespace('/eb/proto/test/ml_processing/yolo')
