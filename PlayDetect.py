@@ -1,4 +1,3 @@
-from pymongo import MongoClient
 from collections import Counter
 import json
 import csv
@@ -15,6 +14,23 @@ class PlayDetect(object):
         self.top_table = Counter()
         self.compareSegConn = sqlite3.connect('seglab.db')
         self.resultSegConn = sqlite3.connect('playdetect.db')
+        self.topNumber = 10
+
+        c_init = self.resultSegConn.cursor()
+
+        c_init.execute("drop table if exists segResult")
+
+        c_init.execute("drop table if exists segInfo")
+
+        c_init.execute('''CREATE TABLE IF NOT EXISTS segResult
+                     (SceneSegName TEXT, StartFrame TEXT, EndFrame, TEXT Date DATE, Run TEXT, Scene TEXT, Summary TEXT, 
+                     PRIMARY KEY(SceneSegName))''')
+
+        c_init.execute('''CREATE TABLE IF NOT EXISTS segInfo
+                     (Start TEXT, Frame TEXT, Date DATE, Run TEXT, Scene TEXT, Class TEXT, Label TEXT, Prob REAL, Location REAL, 
+                     PRIMARY KEY(Start, Frame, Class, Label))''')
+
+        c_init.close()
 
     @staticmethod
     def _objectIndexVector(label_file):
@@ -52,7 +68,7 @@ class PlayDetect(object):
         self.weight_vector = tmp_weight_vector
 
     def processSeg(self, seg):
-        seg.append(len(self.historical_seg)+1)
+        # seg.append(len(self.historical_seg)+1)
         self.historical_seg.append(seg)
 
     def processLiveFrame(self, live_frame):
@@ -65,34 +81,46 @@ class PlayDetect(object):
     def segComparsion(self, seg):
         weighted_similarity = 0
         for k in seg["info"]:
-            weighted_similarity += max((k["frequency"], self.frame_table[k["label"]]))
+            weighted_similarity += min((k["frequency"], self.frame_table[k["label"]]))
 
         return weighted_similarity
 
-    def pickTops(self, live_frame):
+    def pickTops(self, live_frame, k):
+        self.topNumber = k
         self.processLiveFrame(live_frame)
         self.top_table = Counter()
+
+        c = self.resultSegConn.cursor()
+
+        for row in c.execute('SELECT * FROM segInfo GROUP BY start ORDER BY start'):
+            print(row)
+
+        c.close()
+
         for s in self.historical_seg:
             self.top_table[s[-1]] = self.segComparsion(s)
 
-        return self.top_table.most_common(k)
+        print("most similarity frames are:" + self.top_table.most_common(self.topNumber))
+        return self.top_table.most_common(self.topNumber)
 
     def sort(self):
         pass
 
     def storeToDatabase(self, segName, segInfo):
         # print(segName)
+
+        self.processSeg(segInfo)
         c = self.resultSegConn.cursor()
 
-        c.execute("drop table if exists segResult")
+        # print(segInfo["info"])
 
-        c.execute('''CREATE TABLE IF NOT EXISTS segResult
-                     (SceneSegName TEXT, StartFrame TEXT, EndFrame, TEXT Date DATE, Run TEXT, Scene TEXT, Info TEXT, 
-                     PRIMARY KEY(SceneSegName))''')
+        resultseg_entry = (str(segName), segInfo['start'], segInfo['end'], None, None, None, str(segInfo["info"]))  #replace last entry with segment information
 
-        resultseg_entry = (str(segName), segInfo['start'], segInfo['end'], None, None, None, None)  #replace last entry with segment information
+        print(resultseg_entry)
 
         c.execute('INSERT INTO segResult VALUES (?,?,?,?,?,?,?)', resultseg_entry)
+
+        # c.execute('INSERT INTO segResult VALUES (?,?,?,?,?,?,?)', resultseg_entry)
 
         c.close()
 

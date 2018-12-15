@@ -43,19 +43,20 @@ def dump(*list):
         result += (element if type(element) is str else str(element)) + " "
     print(result)
 
-def main(index_f, weight_f):
+def main(index_f, weight_f, k):
     # The default Face will connect using a Unix socket, or to "localhost".
-    pd = PlayDetect(index_f, weight_f)
+    pd = PlayDetect(index_f, weight_f, k)
 
     face = Face()
     keyChain = KeyChain()
     face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
-    # stream_consumer = Namespace("/ndn/eb/stream/run/28/annotation")
-    sceneConsumer = Namespace('/eb/proto/test/ml_processing/yolo/seglab')
+    stream_consumer = Namespace("/ndn/eb/stream/run/28/annotation")
+    # sceneConsumer = Namespace('/eb/proto/test/ml_processing/yolo/seglab')
     sceneConsumer.setFace(face)
 
-    annotationsConsumer = Namespace('/eb/proto/test/ml_processing/yolo')
+    annotationsConsumer = Namespace("/ndn/eb/stream/run/28/annotations")
+    # annotationsConsumer = Namespace('/eb/proto/test/ml_processing/yolo')
     annotationsConsumer.setFace(face)
 
     playdetectProducer = Namespace('/eb/playdetect/segments')
@@ -77,7 +78,7 @@ def main(index_f, weight_f):
             pd.storeToDatabase(sceneSegmentName, sceneSegment)
 
     def onNewAnnotation(sequenceNumber, contentMetaInfo, objectNamespace):
-        dump("Got new annotation:", str(objectNamespace.obj))
+        # dump("Got new annotation:", str(objectNamespace.obj))
         stringObj = str(objectNamespace.obj)
         if stringObj:
             # TBD
@@ -89,7 +90,7 @@ def main(index_f, weight_f):
                 # the result should be a list that contains scene segment names (see above)
                 # FOR NOW: let's have startFrame end endFrame in the results
                 # most likely -- parameterize query, i.e. give argument maxResultNum
-                result = pd.pickTops(json.load(stringObj))
+                result = pd.pickTops(json.loads(stringObj), k)
                 if result:
                     playdSegmentsHandler.addObject(
                         Blob(json.dumps(result)),
@@ -111,13 +112,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Parse command line args for ndn consumer and segment algorithm')
     parser.add_argument("-i", "--object index", dest='indexFile', nargs='?', const=1, type=str, default="config/object_label.csv", help='object index file')
     parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="config/object_weight.csv", help='object weight file')
+    parser.add_argument("-k", "--top k results", dest='topNumResult', nargs='?', const=1, type=int, default=10, help='object weight file')
+
 
     args = parser.parse_args()
 
     try:
         index_file = args.indexFile
         weight_file = args.weightFile
-        main(index_file, weight_file)
+        k = args.topNumResult
+        main(index_file, weight_file, k)
 
     except:
         traceback.print_exc(file=sys.stdout)

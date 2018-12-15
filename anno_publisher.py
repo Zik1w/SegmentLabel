@@ -158,7 +158,7 @@ def main():
     # face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
 
-    publishIntervalMs = 1000.0 / 30
+    publishIntervalMs = 1000.0 / 10
     stream = Namespace("/ndn/eb/stream/run/28/annotations", keyChain)
     handler = GeneralizedObjectStreamHandler()
     stream.setHandler(handler)
@@ -212,6 +212,9 @@ def main():
             #     "application/json")
 
             cnt+= 1
+
+            if cnt == total_cnt:
+                cnt = 0
 
             previousPublishMs = now
 
