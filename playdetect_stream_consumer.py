@@ -78,8 +78,8 @@ def main(index_f, weight_f):
 
     def onNewAnnotation(sequenceNumber, contentMetaInfo, objectNamespace):
         dump("Got new annotation:", str(objectNamespace.obj))
-
-        if str(objectNamespace.obj):
+        stringObject = str(objectNamespace.obj)
+        if str(objectNamespace.obj) and not "error" in stringObject:
             # TBD
             # query interval configurable
             itIsTimeToQueryDatabase = True
@@ -89,7 +89,8 @@ def main(index_f, weight_f):
                 # the result should be a list that contains scene segment names (see above)
                 # FOR NOW: let's have startFrame end endFrame in the results
                 # most likely -- parameterize query, i.e. give argument maxResultNum
-                result = pd.pickTops(str(objectNamespace.obj))
+                print( json.loads(stringObject))
+                result = pd.pickTops(json.loads(stringObject))
                 if result:
                     playdSegmentsHandler.addObject(
                         Blob(json.dumps(result)),
