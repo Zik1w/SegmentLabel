@@ -68,11 +68,11 @@ def main(index_f, weight_f):
 
         ann = json.loads(str(objectNamespace.obj))
 
-        print(ann)
+        # print(ann)
 
         if not "error" in ann:
             segment_result = sl.sceneDetection(ann)
-            # print(segment_result)
+            print(segment_result)
             if segment_result and len(segment_result) > 0:
                 dump("Got generalized object, sequenceNumber", sequenceNumber,
                      ", content-type", contentMetaInfo.getContentType(), ":",

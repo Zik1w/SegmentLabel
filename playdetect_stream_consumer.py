@@ -73,7 +73,7 @@ def main(index_f, weight_f):
             # TBD
             # Store scene segment AND scene segment NAME into a database
             sceneSegmentName = objectNamespace.getName()
-            sceneSegment = json.loads(objectNamespace.obj)
+            sceneSegment = json.loads(str(objectNamespace.obj))
             pd.storeToDatabase(sceneSegmentName, sceneSegment)
 
     def onNewAnnotation(sequenceNumber, contentMetaInfo, objectNamespace):

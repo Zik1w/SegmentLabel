@@ -41,7 +41,7 @@ class SegmentLabel(object):
         self.thresold_sum_option = 0     #0 for L1-norm, 1 for L2-norm
         self.thresold_ratio = 3
         self.class_ratio = 1.5
-        self.thresold_param = 0.5
+        self.thresold_param = 0.1
         self.readConfig(config_file)
 
 
@@ -191,6 +191,7 @@ class SegmentLabel(object):
 
         last_frame = []
         anno_table = Counter()
+        sceneSeg = None
         if not self.initilized:
 
             self.initial_frame = curr_list
@@ -272,6 +273,7 @@ class SegmentLabel(object):
             ##detect scene change
             if self.thresold_check(self.dissimiliarityVector(self.object_var_vector, tmp_prev_object, self.temporal_var_vector, tmp_spatial, tmp_temporal, self.spatial_prev_vector)):
                 sceneSeg = self.labeling(self.initial_frame, curr_frame, self.frame_info)
+                print(sceneSeg)
                 self.seg_num += 1
                 self.initial_frame = curr_frame
                 self.frame_info = anno_table

@@ -3,7 +3,7 @@ from collections import Counter
 import json
 import csv
 import sqlite3
-
+import numpy as np
 
 class PlayDetect(object):
     def __init__(self, label_file, weight_file, config_file=None):
@@ -81,17 +81,18 @@ class PlayDetect(object):
         pass
 
     def storeToDatabase(self, segName, segInfo):
+        print(segName)
         c = self.resultSegConn.cursor()
 
-        c.execute("drop table if exists resultseg")
+        c.execute("drop table if exists segResult")
 
-        c.execute('''CREATE TABLE IF NOT EXISTS seglab
+        c.execute('''CREATE TABLE IF NOT EXISTS segResult
                      (SceneSegName TEXT, StartFrame TEXT, EndFrame, TEXT Date DATE, Run TEXT, Scene TEXT, Info TEXT, 
                      PRIMARY KEY(SceneSegName))''')
 
-        resultseg_entry = (segName, segInfo['start'], segInfo['end'], None, None, None, segInfo['info'])
+        resultseg_entry = (str(segName), segInfo['start'], segInfo['end'], None, None, None, None)  #replace last entry with segment information
 
-        c.execute('INSERT INTO resultseg VALUES (?,?,?,?,?,?,?)', resultseg_entry)
+        c.execute('INSERT INTO segResult VALUES (?,?,?,?,?,?,?)', resultseg_entry)
 
         c.close()
 
