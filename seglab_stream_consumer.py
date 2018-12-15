@@ -68,7 +68,7 @@ def main(index_f, weight_f):
 
         ann = json.loads(str(objectNamespace.obj))
 
-        # print(ann)
+        print(ann)
 
         if not "error" in ann:
             segment_result = sl.sceneDetection(ann)

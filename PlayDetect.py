@@ -11,7 +11,7 @@ class PlayDetect(object):
         self.weight_vector = self._objectWeightVector(weight_file)
         self.live_frame = None
         self.historical_seg = []
-        self.frame_table = []
+        self.frame_table = Counter()
         self.top_table = Counter()
         self.compareSegConn = sqlite3.connect('seglab.db')
         self.resultSegConn = sqlite3.connect('playdetect.db')
@@ -81,7 +81,7 @@ class PlayDetect(object):
         pass
 
     def storeToDatabase(self, segName, segInfo):
-        print(segName)
+        # print(segName)
         c = self.resultSegConn.cursor()
 
         c.execute("drop table if exists segResult")
