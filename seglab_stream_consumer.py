@@ -65,12 +65,11 @@ def main(index_f, weight_f):
         lambda prefixName, whatever: dump("Register success for prefix", prefixName))
 
     def onNewAnnotation(sequenceNumber, contentMetaInfo, objectNamespace):
-
-        ann = json.loads(str(objectNamespace.obj))
-
+        objectString = str(objectNamespace.obj)
         # print(ann)
 
-        if not "error" in ann:
+        if not "error" in objectString:
+            ann = json.loads(objectString)
             segment_result = sl.sceneDetection(ann)
             print(segment_result)
             if segment_result and len(segment_result) > 0:
