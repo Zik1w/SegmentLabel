@@ -51,8 +51,8 @@ def main(index_f, weight_f, k):
     keyChain = KeyChain()
     face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
-    stream_consumer = Namespace("/ndn/eb/stream/run/28/annotation")
-    # sceneConsumer = Namespace('/eb/proto/test/ml_processing/yolo/seglab')
+    # sceneConsumer = Namespace("/ndn/eb/stream/run/28/annotation")
+    sceneConsumer = Namespace('/eb/proto/test/ml_processing/yolo/seglab')
     sceneConsumer.setFace(face)
 
     annotationsConsumer = Namespace("/ndn/eb/stream/run/28/annotations")

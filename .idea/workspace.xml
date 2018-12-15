@@ -2,9 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="bba57b71-46da-408c-aa90-b80544e6e210" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/PlayDetect.py" afterPath="$PROJECT_DIR$/PlayDetect.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/anno_publisher.py" afterPath="$PROJECT_DIR$/anno_publisher.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/SegmentLabel.py" afterPath="$PROJECT_DIR$/SegmentLabel.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/playdetect_stream_consumer.py" afterPath="$PROJECT_DIR$/playdetect_stream_consumer.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/seglab_stream_consumer.py" afterPath="$PROJECT_DIR$/seglab_stream_consumer.py" />
     </list>
@@ -20,8 +19,8 @@
       <file leaf-file-name="seglab_stream_consumer.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/seglab_stream_consumer.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="279">
-              <caret line="51" column="25" lean-forward="true" selection-start-line="51" selection-start-column="25" selection-end-line="51" selection-end-column="25" />
+            <state relative-caret-position="-14">
+              <caret line="78" column="38" lean-forward="false" selection-start-line="78" selection-start-column="38" selection-end-line="78" selection-end-column="38" />
               <folding>
                 <element signature="e#1049#1065#0" expanded="true" />
               </folding>
@@ -32,8 +31,8 @@
       <file leaf-file-name="playdetect_stream_consumer.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/playdetect_stream_consumer.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="132">
-              <caret line="47" column="35" lean-forward="false" selection-start-line="47" selection-start-column="35" selection-end-line="47" selection-end-column="35" />
+            <state relative-caret-position="136">
+              <caret line="114" column="70" lean-forward="false" selection-start-line="114" selection-start-column="70" selection-end-line="114" selection-end-column="70" />
               <folding>
                 <element signature="e#1049#1060#0" expanded="true" />
               </folding>
@@ -44,8 +43,8 @@
       <file leaf-file-name="PlayDetect.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/PlayDetect.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-113">
-              <caret line="96" column="0" lean-forward="true" selection-start-line="96" selection-start-column="0" selection-end-line="96" selection-end-column="0" />
+            <state relative-caret-position="-331">
+              <caret line="84" column="0" lean-forward="true" selection-start-line="84" selection-start-column="0" selection-end-line="84" selection-end-column="0" />
               <folding>
                 <element signature="e#0#31#0" expanded="true" />
               </folding>
@@ -66,8 +65,8 @@
       <file leaf-file-name="SegmentLabel.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/SegmentLabel.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="165">
-              <caret line="44" column="36" lean-forward="true" selection-start-line="44" selection-start-column="36" selection-end-line="44" selection-end-column="36" />
+            <state relative-caret-position="3479">
+              <caret line="293" column="38" lean-forward="true" selection-start-line="293" selection-start-column="38" selection-end-line="293" selection-end-column="38" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -141,11 +140,11 @@
         <option value="$PROJECT_DIR$/seglab_test.py" />
         <option value="$PROJECT_DIR$/seglab_stream_producer.py" />
         <option value="$PROJECT_DIR$/playdetect_stream_producer.py" />
-        <option value="$PROJECT_DIR$/SegmentLabel.py" />
         <option value="$PROJECT_DIR$/README.md" />
         <option value="$PROJECT_DIR$/anno_publisher.py" />
-        <option value="$PROJECT_DIR$/PlayDetect.py" />
         <option value="$PROJECT_DIR$/playdetect_stream_consumer.py" />
+        <option value="$PROJECT_DIR$/PlayDetect.py" />
+        <option value="$PROJECT_DIR$/SegmentLabel.py" />
         <option value="$PROJECT_DIR$/seglab_stream_consumer.py" />
       </list>
     </option>
@@ -213,6 +212,11 @@
             <path>
               <item name="Eb-SegmentLabeling" type="b2602c69:ProjectViewProjectNode" />
               <item name="Eb-SegmentLabeling" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="Eb-SegmentLabeling" type="b2602c69:ProjectViewProjectNode" />
+              <item name="Eb-SegmentLabeling" type="462c0819:PsiDirectoryNode" />
+              <item name="config" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -576,12 +580,12 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/SegmentLabel.py">
+    <entry file="file://$PROJECT_DIR$/playdetect_stream_consumer.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="165">
-          <caret line="44" column="36" lean-forward="true" selection-start-line="44" selection-start-column="36" selection-end-line="44" selection-end-column="36" />
+        <state relative-caret-position="136">
+          <caret line="114" column="70" lean-forward="false" selection-start-line="114" selection-start-column="70" selection-end-line="114" selection-end-column="70" />
           <folding>
-            <element signature="e#0#10#0" expanded="true" />
+            <element signature="e#1049#1060#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -594,30 +598,30 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/SegmentLabel.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="3479">
+          <caret line="293" column="38" lean-forward="true" selection-start-line="293" selection-start-column="38" selection-end-line="293" selection-end-column="38" />
+          <folding>
+            <element signature="e#0#10#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/PlayDetect.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-113">
-          <caret line="96" column="0" lean-forward="true" selection-start-line="96" selection-start-column="0" selection-end-line="96" selection-end-column="0" />
+        <state relative-caret-position="-331">
+          <caret line="84" column="0" lean-forward="true" selection-start-line="84" selection-start-column="0" selection-end-line="84" selection-end-column="0" />
           <folding>
             <element signature="e#0#31#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/playdetect_stream_consumer.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="132">
-          <caret line="47" column="35" lean-forward="false" selection-start-line="47" selection-start-column="35" selection-end-line="47" selection-end-column="35" />
-          <folding>
-            <element signature="e#1049#1060#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/seglab_stream_consumer.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="279">
-          <caret line="51" column="25" lean-forward="true" selection-start-line="51" selection-start-column="25" selection-end-line="51" selection-end-column="25" />
+        <state relative-caret-position="-14">
+          <caret line="78" column="38" lean-forward="false" selection-start-line="78" selection-start-column="38" selection-end-line="78" selection-end-column="38" />
           <folding>
             <element signature="e#1049#1065#0" expanded="true" />
           </folding>

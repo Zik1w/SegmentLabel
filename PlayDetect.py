@@ -90,12 +90,12 @@ class PlayDetect(object):
         self.processLiveFrame(live_frame)
         self.top_table = Counter()
 
-        c = self.resultSegConn.cursor()
+        c_pick = self.resultSegConn.cursor()
 
-        for row in c.execute('SELECT * FROM segInfo GROUP BY start ORDER BY start'):
+        for row in c_pick.execute('SELECT * FROM segInfo GROUP BY start ORDER BY start'):
             print(row)
 
-        c.close()
+        c_pick.close()
 
         for s in self.historical_seg:
             self.top_table[s[-1]] = self.segComparsion(s)

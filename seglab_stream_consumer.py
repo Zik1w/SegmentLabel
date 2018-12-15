@@ -44,16 +44,27 @@ def dump(*list):
         result += (element if type(element) is str else str(element)) + " "
     print(result)
 
-def main(index_f, weight_f):
+def main(index_f, weight_f, config_f, consumerMode):
     # The default Face will connect using a Unix socket, or to "localhost".
     sl = SegmentLabel(index_f, weight_f)
+
+    if config_f != "":
+        sl.readConfig(config_f)
+
 
     face = Face()
     keyChain = KeyChain()
     face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
-    stream_annConsumer = Namespace("/ndn/eb/stream/run/28/annotations")
-    # stream_annConsumer = Namespace('/eb/proto/test/ml_processing/yolo')
+    stream_annConsumer = Namespace('/eb/proto/test/ml_processing/yolo')
+
+    if consumerMode == "test":
+        stream_annConsumer = Namespace("/ndn/eb/stream/run/28/annotations")
+    elif consumerMode == "default":
+        stream_annConsumer = Namespace('/eb/proto/test/ml_processing/yolo_default')
+
+
+    # stream_annConsumer = Namespace("/ndn/eb/stream/run/28/annotations")
     stream_annConsumer.setFace(face)
 
     stream_segProducer = Namespace("/eb/proto/test/ml_processing/yolo/seglab", keyChain)
@@ -65,26 +76,24 @@ def main(index_f, weight_f):
         lambda prefixName, whatever: dump("Register success for prefix", prefixName))
 
     def onNewAnnotation(sequenceNumber, contentMetaInfo, objectNamespace):
+        ann = str(objectNamespace.obj)
 
-        ann = json.loads(str(objectNamespace.obj))
+        print(ann)
 
-        # print(ann)
-
-        if not "error" in ann:
-            segment_result = sl.sceneDetection(ann)
-            print(segment_result)
-            if segment_result and len(segment_result) > 0:
-                dump("Got generalized object, sequenceNumber", sequenceNumber,
-                     ", content-type", contentMetaInfo.getContentType(), ":",
-                     str(time.time()))
-
-                # dump(time.time(), "Publish scene HERE")
-                # dump(time.time(), "publishing scene (segment)",
-                #     publish_handler.getProducedSequenceNumber() + 1)
-                publish_handler.addObject(
-                    Blob(segment_result),
-                    "application/json")
-                print("PUBLISHED")
+        # if not "error" in ann:
+        #     segment_result = sl.sceneDetection(json.loads(ann))
+        #     if segment_result and len(segment_result) > 0:
+        #         dump("Got generalized object, sequenceNumber", sequenceNumber,
+        #              ", content-type", contentMetaInfo.getContentType(), ":",
+        #              str(time.time()))
+        #
+        #         # dump(time.time(), "Publish scene HERE")
+        #         # dump(time.time(), "publishing scene (segment)",
+        #         #     publish_handler.getProducedSequenceNumber() + 1)
+        #         publish_handler.addObject(
+        #             Blob(segment_result),
+        #             "application/json")
+        #         print("PUBLISHED")
 
     pipelineSize = 10
     stream_annConsumer.setHandler(
@@ -99,14 +108,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Parse command line args for ndn consumer and segment algorithm')
     parser.add_argument("-i", "--object index", dest='indexFile', nargs='?', const=1, type=str, default="config/object_label.csv", help='object index file')
     parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="config/object_weight.csv", help='object weight file')
+    parser.add_argument("-c", "--algorithm config", dest="configureFile", nargs='?', const=1, type=str, default="", help='algorithm configuraiton file')
+    parser.add_argument("-m", "--running mode", dest='mode', nargs='?', const=1, type=str, default="", help='the mode for fetching data')
+
 
     args = parser.parse_args()
 
     try:
         index_file = args.indexFile
         weight_file = args.weightFile
-        main(index_file, weight_file)
-        main()
+        config_file = args.configureFile
+        mode = args.mode
+        main(index_file, weight_file, config_file, mode)
 
     except:
         traceback.print_exc(file=sys.stdout)

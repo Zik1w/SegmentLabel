@@ -172,6 +172,9 @@ class SegmentLabel(object):
 
     def processAnnotation(self, curr):
 
+        # print("current frame is:")
+        # print(curr)
+
         c = self.conn.cursor()
 
         # curr = []
