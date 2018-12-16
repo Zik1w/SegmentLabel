@@ -43,7 +43,7 @@ def dump(*list):
         result += (element if type(element) is str else str(element)) + " "
     print(result)
 
-def main(index_f, weight_f, k):
+def main(index_f, weight_f, consumerMode, k):
     # The default Face will connect using a Unix socket, or to "localhost".
     pd = PlayDetect(index_f, weight_f, k)
 
@@ -55,8 +55,13 @@ def main(index_f, weight_f, k):
     sceneConsumer = Namespace('/eb/proto/test/ml_processing/yolo/seglab')
     sceneConsumer.setFace(face)
 
-    annotationsConsumer = Namespace("/ndn/eb/stream/run/28/annotations")
-    # annotationsConsumer = Namespace('/eb/proto/test/ml_processing/yolo')
+    annotationsConsumer = Namespace('/eb/proto/test/ml_processing/yolo')
+
+    if consumerMode == "test":
+        annotationsConsumer = Namespace("/ndn/eb/stream/run/28/annotations")
+    elif consumerMode == "default":
+        annotationsConsumer = Namespace('/eb/proto/test/ml_processing/yolo_default')
+
     annotationsConsumer.setFace(face)
 
     playdetectProducer = Namespace('/eb/playdetect/segments')
@@ -113,15 +118,12 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--object index", dest='indexFile', nargs='?', const=1, type=str, default="config/object_label.csv", help='object index file')
     parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="config/object_weight.csv", help='object weight file')
     parser.add_argument("-k", "--top k results", dest='topNumResult', nargs='?', const=1, type=int, default=10, help='object weight file')
-
+    parser.add_argument("-m", "--running mode", dest='mode', nargs='?', const=1, type=str, default="", help='the mode for fetching data')
 
     args = parser.parse_args()
 
     try:
-        index_file = args.indexFile
-        weight_file = args.weightFile
-        k = args.topNumResult
-        main(index_file, weight_file, k)
+        main(args.indexFile, args.weightFile, args.mode, args.topNumResult)
 
     except:
         traceback.print_exc(file=sys.stdout)

@@ -56,16 +56,16 @@ def main(index_f, weight_f, config_f, consumerMode):
     keyChain = KeyChain()
     face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
-    stream_annConsumer = Namespace('/eb/proto/test/ml_processing/yolo')
-
-    if consumerMode == "test":
-        stream_annConsumer = Namespace("/ndn/eb/stream/run/28/annotations")
-    elif consumerMode == "default":
-        stream_annConsumer = Namespace('/eb/proto/test/ml_processing/yolo_default')
+    stream_annConsumer_test = Namespace("/ndn/eb/stream/run/28/annotations")
+    stream_annConsumer_test.setFace(face)
 
 
-    # stream_annConsumer = Namespace("/ndn/eb/stream/run/28/annotations")
-    stream_annConsumer.setFace(face)
+    if consumerMode == 'default':
+        stream_annConsumer_default = Namespace('/eb/proto/test/ml_processing/yolo_default')
+        stream_annConsumer_default.setFace(face)
+
+    stream_annConsumer_show = Namespace('/eb/proto/test/ml_processing/yolo')
+    stream_annConsumer_show.setFace(face)
 
     stream_segProducer = Namespace("/eb/proto/test/ml_processing/yolo/seglab", keyChain)
     publish_handler = GeneralizedObjectStreamHandler()
@@ -80,24 +80,35 @@ def main(index_f, weight_f, config_f, consumerMode):
 
         print(ann)
 
-        # if not "error" in ann:
-        #     segment_result = sl.sceneDetection(json.loads(ann))
-        #     if segment_result and len(segment_result) > 0:
-        #         dump("Got generalized object, sequenceNumber", sequenceNumber,
-        #              ", content-type", contentMetaInfo.getContentType(), ":",
-        #              str(time.time()))
-        #
-        #         # dump(time.time(), "Publish scene HERE")
-        #         # dump(time.time(), "publishing scene (segment)",
-        #         #     publish_handler.getProducedSequenceNumber() + 1)
-        #         publish_handler.addObject(
-        #             Blob(segment_result),
-        #             "application/json")
-        #         print("PUBLISHED")
+        if not "error" in ann:
+            jsonAnn = json.loads(ann)
+            # print(jsonAnn["frameName"])
+            segment_result = sl.sceneDetection(jsonAnn)
+            if segment_result and len(segment_result) > 0:
+                dump("Got generalized object, sequenceNumber", sequenceNumber,
+                     ", content-type", contentMetaInfo.getContentType(), ":",
+                     str(jsonAnn["frameName"]), 'at', str(time.time()))
+
+                # dump(time.time(), "Publish scene HERE")
+                # dump(time.time(), "publishing scene (segment)",
+                #     publish_handler.getProducedSequenceNumber() + 1)
+                publish_handler.addObject(
+                    Blob(segment_result),
+                    "application/json")
+                print("PUBLISHED")
 
     pipelineSize = 10
-    stream_annConsumer.setHandler(
+
+    if consumerMode == 'default':
+        stream_annConsumer_default.setHandler(
+          GeneralizedObjectStreamHandler(pipelineSize, onNewAnnotation)).objectNeeded()
+
+
+    stream_annConsumer_show.setHandler(
       GeneralizedObjectStreamHandler(pipelineSize, onNewAnnotation)).objectNeeded()
+
+    stream_annConsumer_test.setHandler(
+        GeneralizedObjectStreamHandler(pipelineSize, onNewAnnotation)).objectNeeded()
 
     while True:
         face.processEvents()
@@ -115,11 +126,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        index_file = args.indexFile
-        weight_file = args.weightFile
-        config_file = args.configureFile
-        mode = args.mode
-        main(index_file, weight_file, config_file, mode)
+        main(args.indexFile, args.weightFile, args.configureFile, args.mode)
 
     except:
         traceback.print_exc(file=sys.stdout)

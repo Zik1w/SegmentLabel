@@ -146,16 +146,16 @@ def main():
     face = Face()
 
     # Create an in-memory key chain with default keys.
-    keyChain = KeyChain("pib-memory:", "tpm-memory:")
-    keyChain.importSafeBag(SafeBag
-      (Name("/testname/KEY/123"),
-       Blob(DEFAULT_RSA_PRIVATE_KEY_DER, False),
-       Blob(DEFAULT_RSA_PUBLIC_KEY_DER, False)))
-    face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
+    # keyChain = KeyChain("pib-memory:", "tpm-memory:")
+    # keyChain.importSafeBag(SafeBag
+    #   (Name("/testname/KEY/123"),
+    #    Blob(DEFAULT_RSA_PRIVATE_KEY_DER, False),
+    #    Blob(DEFAULT_RSA_PUBLIC_KEY_DER, False)))
+    # face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
     # Use default keys
-    # keyChain = KeyChain()
-    # face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
+    keyChain = KeyChain()
+    face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
 
     publishIntervalMs = 1000.0 / 10

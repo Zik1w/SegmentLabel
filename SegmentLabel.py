@@ -8,6 +8,8 @@ import json
 import csv
 import numpy as np
 import sqlite3
+import collections
+
 from collections import Counter
 
 
@@ -23,11 +25,18 @@ class SegmentLabel(object):
         self.spatial_prev_vector = None
         self.spatial_cur_vector = None
 
+
         self.seg_num = 0
         self.initilized = False
         self.initial_frame = None
+        self.last_segmented_frame = None
         self.conn = sqlite3.connect('seglab.db')
         self.frame_info = Counter()
+        self.hash_frames = {}
+        self.hash_begin_frame = {}
+        self.hash_begin_frame = {}
+        self.hash_frame_info = {}
+
 
 
         self.weight_param = 1.0
@@ -35,13 +44,14 @@ class SegmentLabel(object):
         self.temporal_param = 1.0
         self.spatial_param = 1.0
         self.growth_rate = 0.01
-        self.time_change_rate = 30.0
+        self.time_change_rate = 1
         self.add_param = 1.0
         self.remove_param = 1.0
-        self.thresold_sum_option = 0     #0 for L1-norm, 1 for L2-norm
+        self.thresold_sum_option = 1     #0 for L1-norm, 1 for L2-norm
         self.thresold_ratio = 3
-        self.class_ratio = 1.5
-        self.thresold_param = 0.1
+        self.class_ratio = 0.01
+        self.thresold_param = 0.5
+        # self.thresold_param = 0.000001   # single frame scene
         self.readConfig(config_file)
 
 
@@ -92,12 +102,23 @@ class SegmentLabel(object):
         self.weight_vector = tmp_weight_vector
 
     def objectEncodingVector(self, ann):
-        tem_ojbect_vector = np.zeros(len(self.index_map))
+        tem_object_vector = np.zeros(len(self.index_map))
 
         for item in ann:
+            tem_object_vector[self.index_map[item['label']]-1] += 1
 
-            tem_ojbect_vector[self.index_map[item['label']]-1] += 1
-        return tem_ojbect_vector
+        # print(tem_object_vector)
+        return tem_object_vector
+
+    def objectFrequencyEncodingVector(self, ann):
+        temp_object_vector = np.zeros(len(self.index_map))
+
+
+        for k, v in ann.items():
+            temp_object_vector[self.index_map[k]] = int(v)
+
+        # print(temp_object_vector)
+        return temp_object_vector
 
     def spatialWeightVector(self, ann):
         tmp_sw_vector = np.zeros(len(self.index_map))
@@ -109,17 +130,31 @@ class SegmentLabel(object):
 
         return np.divide(tmp_sw_vector, tmp_cnt_vector, out=tmp_sw_vector, where=tmp_cnt_vector != 0)
 
-    ##TODO: update this method
-    def temporalWeightVector(self, ann, object_prev_vector):
-        tmp_tp_vector = np.zeros(len(self.index_map))
+    def temporalWeightVector(self, object_prev_vector):
+        tmp_tp_vector = np.ones(len(self.index_map))
 
-        return np.ones(len(self.index_map))
+        # if self.initilized:
+        #     for k in range(len(object_prev_vector)):
+        #         if object_prev_vector[k] > 0:
+        #             tmp_tp_vector[k] += self.time_change_rate
+        #         else:
+        #             tmp_tp_vector[k] = 1
 
-    ##TODO: update this method
+        return tmp_tp_vector
+
     def temporalVariationVector(self, object_prev_vector, object_cur_vector):
-        tmp_tp_vector = np.zeros(len(self.index_map))
+        tmp_tp_vector = np.ones(len(self.index_map))
 
-        return np.ones(len(self.index_map))
+        # for k in range(len(object_prev_vector)):
+        #     if object_prev_vector[k] > 0 and object_cur_vector[k] > 0 and object_cur_vector[k] >= object_prev_vector[k]:
+        #         tmp_tp_vector[k] = (object_cur_vector[k] - object_prev_vector[k]) * self.time_change_rate
+        #         # tmp_tp_vector[k] *= 1 + self.growth_rate
+        #     elif object_prev_vector[k] > 0 and object_cur_vector[k] > 0 and object_cur_vector[k] < object_prev_vector[k]:
+        #         tmp_tp_vector[k] = (object_prev_vector[k] - object_cur_vector[k]) * self.time_change_rate
+        #     else:
+        #         tmp_tp_vector[k] = 1
+
+        return tmp_tp_vector
 
 
     def objectVariationVector(self, prev, current):
@@ -142,6 +177,17 @@ class SegmentLabel(object):
                # * self.spatial_param*np.divide(sp, sc, out=np.zeros_like(sp), where=sc != 0) \
 
 
+    def dissimiliarityVector_simple(self, ft, f, tt, t):
+        tmp_dm =  self.object_param*(np.divide(ft, f, out=ft, where=f != 0)) \
+               * self.temporal_param*(np.divide(tt, t, out=tt, where=t != 0)) \
+               * self.weight_param * self.weight_vector
+
+        print(tmp_dm)
+
+
+        return tmp_dm
+
+
 
     ##change to add more information to send to playdetect
     def labeling(self, first, last, table):
@@ -149,20 +195,25 @@ class SegmentLabel(object):
         for k, v in table.items():
             data_object["info"].append({"label": k, "frequency": v})
         # data_json = json.dumps(data_object)
-        # print(data_object)
         return data_object
 
+    # def label_seg(self, first, last, table):
+    #     data_object = {"info": [], "start": first["frameName"], "end": last["frameName"]}
+    #     for k, v in table.items():
+    #         data_object["info"].append({"label": k, "frequency": v})
+    #     # data_json = json.dumps(data_object)
+    #     return data_object
 
     def thresold_check(self, dm):
 
 
         if self.thresold_sum_option:
-            metric_dm = np.sqrt(dm.dot(dm))/(self.thresold_ratio*pow(len(self.index_map), self.class_ratio))
+            # metric_dm = np.sqrt(dm.dot(dm))/(self.thresold_ratio*pow(len(self.index_map), self.class_ratio))
+            metric_dm = np.sqrt(dm.dot(dm)) / (self.thresold_ratio*(len(self.index_map) * self.class_ratio))
         else:
-            metric_dm = dm.sum()/(self.thresold_ratio*pow(len(self.index_map), self.class_ratio))
+            metric_dm = dm.sum()/(self.thresold_ratio*(len(self.index_map) * self.class_ratio))
 
-        # print(metric_dm)
-        # print( math.tanh(metric_dm))
+        print(metric_dm)
 
         if max(0, metric_dm) < self.thresold_param:
             return False
@@ -189,100 +240,100 @@ class SegmentLabel(object):
         #                      "ybottom": k["ybottom"], "xleft": k["xleft"], "xright": k["xright"], "prob": k["prob"],
         #                      "frameName": frameName})
         #     curr_list.append(temp)
-
-        curr_list = curr
-
-        last_frame = []
+        # self.hash_frames[self.initial_frame['frameName']] = Counter()
         anno_table = Counter()
         sceneSeg = None
         if not self.initilized:
 
-            self.initial_frame = curr_list
-            anno_frame = self.initial_frame
+            self.initial_frame = curr
 
             entries = []
             ann = self.initial_frame["annotations"]
             for item in ann:
                 anno_table[item['label']] += 1
+                # self.hash_frames[self.initial_frame['frameName']][item['label']] += 1
                 temp_entry = (self.initial_frame['frameName'], self.initial_frame['frameName'], None, None, None, item['label'], str(anno_table[item['label']]), item['prob'], None)
                 entries.append(temp_entry)
 
+            self.hash_frames[self.initial_frame['frameName']] = anno_table
             self.frame_info = anno_table
+
+            # print(anno_table)
+            # print(self.hash_frames)
 
             c.executemany('INSERT INTO seglab VALUES (?,?,?,?,?,?,?,?,?)', entries)
 
-            self.object_prev_vector = self.objectEncodingVector(ann)
-            self.spatial_prev_vector = self.spatialWeightVector(ann)
-            self.temporal_prev_vector = self.temporalWeightVector(self.initial_frame, self.object_prev_vector)
+            #generate the combined label result
+            frame_ann = self.updateFrameAnno(ann)
+
+            self.object_prev_vector = self.objectEncodingVector(frame_ann)
+            self.spatial_prev_vector = self.spatialWeightVector(frame_ann)
+            self.temporal_prev_vector = self.temporalWeightVector(self.object_prev_vector)
             self.initilized = True
 
-            # for curr_frame in curr_list[1:]:
-            #
-            #     ann_table = Counter()
-            #     entries = []
-            #     for item in curr_frame:
-            #         ann_table[item['label']] += 1
-            #         print(ann_table)
-            #         print(ann_table["book"])
-            #         print(self.initial_frame[0]['frameName'], item['frameName'], item['label'], str(ann_table[item['label']]))
-            #         temp_entry = (self.initial_frame[0]['frameName'], item['frameName'], None, None, None, item['label'], str(ann_table[item['label']]), item['prob'], None)
-            #         entries.append(temp_entry)
-            #
-            #
-            #     c.executemany('INSERT INTO seglab VALUES (?,?,?,?,?,?,?,?,?)', entries)
-            #
-            #     tmp_prev_object = self.object_prev_vector
-            #     tmp_spatial = self.spatial_prev_vector
-            #     tmp_temporal = self.temporal_prev_vector
-            #     self.object_prev_vector = self.objectEncodingVector(curr_frame)
-            #     self.spatial_prev_vector = self.spatialWeightVector(curr_frame)
-            #     self.temporal_prev_vector = self.temporalWeightVector(curr_frame, self.object_prev_vector)
-            #     self.object_var_vector = self.objectVariationVector(tmp_prev_object, self.object_prev_vector)
-            #     self.temporal_var_vector = self.temporalVariationVector(tmp_temporal, self.temporal_prev_vector)
-            #     self.spatial_prev_vector = self.spatialWeightVector(curr_frame)
-            #
-            #     ##detect scene change
-            #     if self.thresold_check(self.dissimiliarityVector(self.object_var_vector, tmp_prev_object, self.temporal_var_vector, tmp_spatial, tmp_temporal, self.spatial_prev_vector)):
-            #         frame_list.append(self.labeling(self.initial_frame, last_frame, frame_info))
-            #         # seg_name = prefix + str(seq_num)
-            #         self.seg_num += 1
-            #         self.initial_frame = curr_frame
-            #         frame_info = ann_table
-            #
-            #     last_frame = curr_frame
 
         else:
-            curr_frame = curr_list
+            curr_frame = curr
 
-            anno_table = Counter()
             entries = []
             ann = curr_frame["annotations"]
+            anno_table = Counter()
+            # if not self.hash_frames.get(curr_frame["frameName"]):
+            #     self.hash_frames[self.initial_frame["frameName"]] = anno_table
+            # else:
+            #     anno_table = self.hash_frames[self.initial_frame["frameName"]]
+
             for item in ann:
                 anno_table[item['label']] += 1
+                # if curr_frame['frameName'] not in self.hash_frames:
+                #     self.hash_frames[self.initial_frame['frameName']] = {}
+                #
+                # self.hash_frames[self.initial_frame['frameName']][item['label']] += 1
                 temp_entry = (self.initial_frame['frameName'], curr_frame['frameName'], None, None, None, item['label'], str(anno_table[item['label']]), item['prob'], None)
                 entries.append(temp_entry)
 
+            # if curr_frame['frameName'] not in self.hash_frames:
+            #     self.hash_frames[curr_frame['frameName']] = anno_table
+            # else:
+            #     for k, v in anno_table.items():
+            #         self.hash_frames[curr_frame['frameName']][k] += v
+
+            # self.hash_frames[self.initial_frame['frameName']] += anno_table
+
+            # print(anno_table)
+
             c.executemany('INSERT INTO seglab VALUES (?,?,?,?,?,?,?,?,?)', entries)
 
+
+            # print(self.hash_frames)
+            # sceneSeg_list = self.processFrames(self.hash_frames)
+
             tmp_prev_object = self.object_prev_vector
-            tmp_spatial = self.spatial_prev_vector
+            # tmp_spatial = self.spatial_prev_vector
             tmp_temporal = self.temporal_prev_vector
-            self.object_prev_vector = self.objectEncodingVector(ann)
-            self.spatial_prev_vector = self.spatialWeightVector(ann)
-            self.temporal_prev_vector = self.temporalWeightVector(curr_frame, self.object_prev_vector)
+
+            #generate the combined label result
+            frame_ann = self.updateFrameAnno(ann)
+
+
+            self.object_prev_vector = self.objectEncodingVector(frame_ann)
+
+            # self.spatial_prev_vector = self.spatialWeightVector(frame_ann)
+            self.temporal_prev_vector = self.temporalWeightVector(self.object_prev_vector)
+
             self.object_var_vector = self.objectVariationVector(tmp_prev_object, self.object_prev_vector)
             self.temporal_var_vector = self.temporalVariationVector(tmp_temporal, self.temporal_prev_vector)
 
             ##detect scene change
-            if self.thresold_check(self.dissimiliarityVector(self.object_var_vector, tmp_prev_object, self.temporal_var_vector, tmp_spatial, tmp_temporal, self.spatial_prev_vector)):
+            if self.thresold_check(self.dissimiliarityVector_simple(self.object_var_vector, tmp_prev_object, self.temporal_var_vector, tmp_temporal)):
                 sceneSeg = self.labeling(self.initial_frame, curr_frame, self.frame_info)
-                print(sceneSeg)
                 self.seg_num += 1
                 self.initial_frame = curr_frame
                 self.frame_info = anno_table
 
-            last_frame = curr_frame
+            self.last_segmented_frame = curr_frame
 
+        print(sceneSeg)
         # c.close()
         self.conn.commit()
         if sceneSeg:
@@ -322,8 +373,47 @@ class SegmentLabel(object):
                         self.thresold_param = float(row["Value"])
 
 
-    def updateDB(self):
-        pass
+    def updateFrameAnno(self, annotations):
+        return annotations
+
+
+    def processFrames(self, hash_f):
+        sceneSeg_list = []
+        for fn, ann in hash_f.items():
+            print(fn)
+            print(ann)
+            frame_ann = ann
+
+            tmp_prev_object = self.object_prev_vector
+            # tmp_spatial = self.spatial_prev_vector
+            tmp_temporal = self.temporal_prev_vector
+
+            self.object_prev_vector = self.objectFrequencyEncodingVector(frame_ann)
+            # self.spatial_prev_vector = self.spatialWeightVector(frame_ann)
+            self.temporal_prev_vector = self.temporalWeightVector(frame_ann)
+
+            self.object_var_vector = self.objectVariationVector(tmp_prev_object, self.object_prev_vector)
+            self.temporal_var_vector = self.temporalVariationVector(tmp_temporal, self.temporal_prev_vector)
+
+            ##detect scene change
+            if self.thresold_check(self.dissimiliarityVector_simple(self.object_var_vector, tmp_prev_object, self.temporal_var_vector, tmp_temporal)):
+                # sceneSeg = self.label_seg(f)
+
+                data_object = {"info": [], "start": self.hash_begin_frame, "end": fn}
+                for k, v in ann.items():
+                    data_object["info"].append({"label": k, "frequency": v})
+                # data_json = json.dumps(data_object)
+                # print(data_object)
+
+
+                sceneSeg_list.append(json.dumps(sceneSeg))
+                self.hash_begin_frame = curr_frame
+                self.seg_num += 1
+
+            self.last_segmented_frame = curr_frame
+
+        return sceneSeg_list
+
 
     def resultFigure(self):
         pass
