@@ -81,9 +81,9 @@ def main(index_f, weight_f, config_f, consumerMode, fetchPrefix, publishPrefix):
             # print(jsonAnn["frameName"])
             segment_result = sl.sceneDetection(jsonAnn)
             if segment_result and len(segment_result) > 0:
-                dump("Got generalized object, sequenceNumber", sequenceNumber,
-                     ", content-type", contentMetaInfo.getContentType(), ":",
-                     str(jsonAnn["frameName"]), 'at', str(time.time()))
+                #dump("Got generalized object, sequenceNumber", sequenceNumber,
+                #     ", content-type", contentMetaInfo.getContentType(), ":",
+                #     str(jsonAnn["frameName"]), 'at', str(time.time()))
 
                 # dump(time.time(), "Publish scene HERE")
                 # dump(time.time(), "publishing scene (segment)",
@@ -91,7 +91,7 @@ def main(index_f, weight_f, config_f, consumerMode, fetchPrefix, publishPrefix):
                 publish_handler.addObject(
                     Blob(segment_result),
                     "application/json")
-                print("PUBLISHED")
+                print(" > PUBLISHED SCENE "+publish_handler.getProducedSequenceNumber())
 
     pipelineSize = 10
 
