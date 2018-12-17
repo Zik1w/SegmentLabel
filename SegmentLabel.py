@@ -182,7 +182,7 @@ class SegmentLabel(object):
                * self.temporal_param*(np.divide(tt, t, out=tt, where=t != 0)) \
                * self.weight_param * self.weight_vector
 
-        print(tmp_dm)
+        #print(tmp_dm)
 
 
         return tmp_dm
@@ -213,7 +213,7 @@ class SegmentLabel(object):
         else:
             metric_dm = dm.sum()/(self.thresold_ratio*(len(self.index_map) * self.class_ratio))
 
-        print(metric_dm)
+        #print(metric_dm)
 
         if max(0, metric_dm) < self.thresold_param:
             return False
@@ -333,7 +333,7 @@ class SegmentLabel(object):
 
             self.last_segmented_frame = curr_frame
 
-        print(sceneSeg)
+        #print(sceneSeg)
         # c.close()
         self.conn.commit()
         if sceneSeg:
@@ -380,8 +380,8 @@ class SegmentLabel(object):
     def processFrames(self, hash_f):
         sceneSeg_list = []
         for fn, ann in hash_f.items():
-            print(fn)
-            print(ann)
+            #print(fn)
+            #print(ann)
             frame_ann = ann
 
             tmp_prev_object = self.object_prev_vector
