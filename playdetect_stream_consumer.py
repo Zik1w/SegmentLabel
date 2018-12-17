@@ -31,7 +31,7 @@ import argparse
 
 from PlayDetect import PlayDetect
 from pyndn.util import Blob
-from pyndn import Face
+from pyndn import Face, Name
 from pycnl import Namespace
 from pycnl.generalized_object import GeneralizedObjectStreamHandler
 from pyndn.security import KeyChain
@@ -43,7 +43,7 @@ def dump(*list):
         result += (element if type(element) is str else str(element)) + " "
     print(result)
 
-def main(index_f, weight_f, consumerMode, k):
+def main(index_f, weight_f, consumerMode, k, fetchPrefix, publishPrefix):
     # The default Face will connect using a Unix socket, or to "localhost".
     pd = PlayDetect(index_f, weight_f, k)
 
@@ -52,20 +52,29 @@ def main(index_f, weight_f, consumerMode, k):
     face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
     # sceneConsumer = Namespace("/ndn/eb/stream/run/28/annotation")
-    sceneConsumer = Namespace('/eb/proto/test/ml_processing/yolo/seglab')
+    engine = str(Name(fetchPrefix)[-1])
+    sceneFetchPrefix = Name('/eb/seglab').append(engine)
+
+    print(' > Will fetch annotations from '+fetchPrefix)
+    print(' > Will fetch scenes from '+sceneFetchPrefix.toUri())
+
+    sceneConsumer = Namespace(sceneFetchPrefix)
     sceneConsumer.setFace(face)
 
-    annotationsConsumer = Namespace('/eb/proto/test/ml_processing/yolo')
+    annotationsConsumer = Namespace(fetchPrefix)
 
-    if consumerMode == "test":
-        annotationsConsumer = Namespace("/ndn/eb/stream/run/28/annotations")
-    elif consumerMode == "default":
-        annotationsConsumer = Namespace('/eb/proto/test/ml_processing/yolo_default')
+    #if consumerMode == "test":
+    #    annotationsConsumer = Namespace("/ndn/eb/stream/run/28/annotations")
+    #elif consumerMode == "default":
+    #    annotationsConsumer = Namespace('/eb/proto/test/ml_processing/yolo_default')
 
     annotationsConsumer.setFace(face)
 
-    playdetectProducer = Namespace('/eb/playdetect/segments')
+    playdetectProducer = Namespace(Name(publishPrefix).append(engine))
+    print(' > Will publish playdetect data under '+playdetectProducer.getName().toUri())
+
     playdSegmentsHandler = GeneralizedObjectStreamHandler()
+    # TODO: set freshness to 0
     playdetectProducer.setHandler(playdSegmentsHandler)
 
     playdetectProducer.setFace(face,
@@ -119,11 +128,13 @@ if __name__ == "__main__":
     parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="config/object_weight.csv", help='object weight file')
     parser.add_argument("-k", "--top k results", dest='topNumResult', nargs='?', const=1, type=int, default=10, help='object weight file')
     parser.add_argument("-m", "--running mode", dest='mode', nargs='?', const=1, type=str, default="", help='the mode for fetching data')
+    parser.add_argument("-f", "--fetch", dest='fetch', nargs='?', const=1, type=str, default="", help='prefix for fetching data')
+    parser.add_argument("-p", "--publish", dest='publish', nargs='?', const=1, type=str, default="/eb/playdetect/segments", help='prefix for publishing segments')
 
     args = parser.parse_args()
 
     try:
-        main(args.indexFile, args.weightFile, args.mode, args.topNumResult)
+        main(args.indexFile, args.weightFile, args.mode, args.topNumResult, args.fetch, args.publish)
 
     except:
         traceback.print_exc(file=sys.stdout)

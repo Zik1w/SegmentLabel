@@ -100,7 +100,7 @@ class PlayDetect(object):
         for s in self.historical_seg:
             self.top_table[s[-1]] = self.segComparsion(s)
 
-        print("most similarity frames are:" + self.top_table.most_common(self.topNumber))
+        print("most similarity frames are:" + str(self.top_table.most_common(self.topNumber)))
         return self.top_table.most_common(self.topNumber)
 
     def sort(self):
