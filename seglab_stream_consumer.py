@@ -30,7 +30,7 @@ import argparse
 
 
 from SegmentLabel import SegmentLabel
-from pyndn import Face
+from pyndn import Face, Name
 from pycnl import Namespace
 from pycnl.generalized_object import GeneralizedObjectStreamHandler
 from pyndn.util import Blob
@@ -44,7 +44,7 @@ def dump(*list):
         result += (element if type(element) is str else str(element)) + " "
     print(result)
 
-def main(index_f, weight_f, config_f, consumerMode):
+def main(index_f, weight_f, config_f, consumerMode, fetchPrefix, publishPrefix):
     # The default Face will connect using a Unix socket, or to "localhost".
     sl = SegmentLabel(index_f, weight_f)
 
@@ -56,18 +56,18 @@ def main(index_f, weight_f, config_f, consumerMode):
     keyChain = KeyChain()
     face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
-    stream_annConsumer_test = Namespace("/ndn/eb/stream/run/28/annotations")
-    stream_annConsumer_test.setFace(face)
-
-
-    if consumerMode == 'default':
-        stream_annConsumer_default = Namespace('/eb/proto/test/ml_processing/yolo_default')
-        stream_annConsumer_default.setFace(face)
-
-    stream_annConsumer_show = Namespace('/eb/proto/test/ml_processing/yolo')
+    #stream_annConsumer_test = Namespace("/ndn/eb/stream/run/28/annotations")
+    #stream_annConsumer_test.setFace(face)
+    print(' > Will fetch from '+str(fetchPrefix))
+    stream_annConsumer_show = Namespace(fetchPrefix)
     stream_annConsumer_show.setFace(face)
 
-    stream_segProducer = Namespace("/eb/proto/test/ml_processing/yolo/seglab", keyChain)
+    log_f = open(str("seglab") + ".txt", "w")
+    log_f.close()
+
+
+    stream_segProducer = Namespace(Name(publishPrefix).append(Name(fetchPrefix)[-1]), keyChain)
+    print(' > Will publish segments under '+str(stream_segProducer.getName()))
     publish_handler = GeneralizedObjectStreamHandler()
     stream_segProducer.setHandler(publish_handler)
 
@@ -77,38 +77,47 @@ def main(index_f, weight_f, config_f, consumerMode):
 
     def onNewAnnotation(sequenceNumber, contentMetaInfo, objectNamespace):
         ann = str(objectNamespace.obj)
+        segment_result = []
 
-        print(ann)
+        # print("New Annotation")
 
         if not "error" in ann:
             jsonAnn = json.loads(ann)
             # print(jsonAnn["frameName"])
             segment_result = sl.sceneDetection(jsonAnn)
             if segment_result and len(segment_result) > 0:
-                dump("Got generalized object, sequenceNumber", sequenceNumber,
-                     ", content-type", contentMetaInfo.getContentType(), ":",
-                     str(jsonAnn["frameName"]), 'at', str(time.time()))
+                print(segment_result)
+                #dump("Got generalized object, sequenceNumber", sequenceNumber,
+                #     ", content-type", contentMetaInfo.getContentType(), ":",
+                #     str(jsonAnn["frameName"]), 'at', str(time.time()))
 
                 # dump(time.time(), "Publish scene HERE")
                 # dump(time.time(), "publishing scene (segment)",
                 #     publish_handler.getProducedSequenceNumber() + 1)
                 publish_handler.addObject(
-                    Blob(segment_result),
+                    Blob(json.dumps(segment_result)),
                     "application/json")
-                print("PUBLISHED")
+                print(" > PUBLISHED SCENE "+str(publish_handler.getProducedSequenceNumber()))
+
+
+                # # logging the result
+                # if segment_result:
+                with open(str("seglab") + ".txt", "w+") as f:
+                    f.write("PUBLISHED SCENE: %s" % str(publish_handler.getProducedSequenceNumber()))
+                    f.write("%s\r\n" % segment_result)
 
     pipelineSize = 10
 
-    if consumerMode == 'default':
-        stream_annConsumer_default.setHandler(
-          GeneralizedObjectStreamHandler(pipelineSize, onNewAnnotation)).objectNeeded()
+    #if consumerMode == 'default':
+    #    stream_annConsumer_default.setHandler(
+    #      GeneralizedObjectStreamHandler(pipelineSize, onNewAnnotation)).objectNeeded()
 
 
     stream_annConsumer_show.setHandler(
       GeneralizedObjectStreamHandler(pipelineSize, onNewAnnotation)).objectNeeded()
 
-    stream_annConsumer_test.setHandler(
-        GeneralizedObjectStreamHandler(pipelineSize, onNewAnnotation)).objectNeeded()
+    #stream_annConsumer_test.setHandler(
+    #    GeneralizedObjectStreamHandler(pipelineSize, onNewAnnotation)).objectNeeded()
 
     while True:
         face.processEvents()
@@ -121,12 +130,14 @@ if __name__ == "__main__":
     parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="config/object_weight.csv", help='object weight file')
     parser.add_argument("-c", "--algorithm config", dest="configureFile", nargs='?', const=1, type=str, default="", help='algorithm configuraiton file')
     parser.add_argument("-m", "--running mode", dest='mode', nargs='?', const=1, type=str, default="", help='the mode for fetching data')
-
+    parser.add_argument("-f", "--fetch", dest='fetch', nargs='?', const=1, type=str, default="", help='prefix for fetching data')
+    parser.add_argument("-p", "--publish", dest='publish', nargs='?', const=1, type=str, default="/eb/seglab", help='prefix for publishing segments')
+    parser.add_argument("-th", "--threshold", dest='threshold', nargs='?', const=1, type=float, default=0.5, help='adjust threshold of scene change')
 
     args = parser.parse_args()
 
     try:
-        main(args.indexFile, args.weightFile, args.configureFile, args.mode)
+        main(args.indexFile, args.weightFile, args.configureFile, args.mode, args.fetch, args.publish)
 
     except:
         traceback.print_exc(file=sys.stdout)

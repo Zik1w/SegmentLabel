@@ -15,7 +15,7 @@ from collections import Counter
 
 
 class SegmentLabel(object):
-    def __init__(self, label_file, weight_file, config_file=None):
+    def __init__(self, label_file, weight_file, th=None, config_file=None):
         self.index_map = self._objectIndexVector(label_file)
         self.weight_vector = self._objectWeightVector(weight_file)
         self.object_prev_vector = None
@@ -27,8 +27,12 @@ class SegmentLabel(object):
 
 
         self.seg_num = 0
+        self.frame_cnt = 0.0
         self.initilized = False
         self.initial_frame = None
+        self.last_frame = None
+        self.duration = 0
+        self.duration_highpass = 40
         self.last_segmented_frame = None
         self.conn = sqlite3.connect('seglab.db')
         self.frame_info = Counter()
@@ -38,7 +42,7 @@ class SegmentLabel(object):
         self.hash_frame_info = {}
 
 
-
+        self.confidence_filter_param = 0.05
         self.weight_param = 1.0
         self.object_param = 1.0
         self.temporal_param = 1.0
@@ -50,8 +54,12 @@ class SegmentLabel(object):
         self.thresold_sum_option = 1     #0 for L1-norm, 1 for L2-norm
         self.thresold_ratio = 3
         self.class_ratio = 0.01
-        self.thresold_param = 0.5
-        # self.thresold_param = 0.000001   # single frame scene
+
+        if th:
+            self.thresold_param = th
+        else:
+            # self.thresold_param = 0.2
+            self.thresold_param = 0.00000001   # single frame scene
         self.readConfig(config_file)
 
 
@@ -73,6 +81,7 @@ class SegmentLabel(object):
             reader = csv.DictReader(csvfile)
             for row in reader:
                 index_map[row['label']] = int(row['Number'])
+        # print(len(index_map))
         return index_map
 
     def updateIndex(self, label_file):
@@ -102,13 +111,14 @@ class SegmentLabel(object):
         self.weight_vector = tmp_weight_vector
 
     def objectEncodingVector(self, ann):
-        tem_object_vector = np.zeros(len(self.index_map))
+        temp_object_vector = np.zeros(len(self.index_map))
 
         for item in ann:
-            tem_object_vector[self.index_map[item['label']]-1] += 1
+            if item['prob'] >= self.confidence_filter_param:
+                temp_object_vector[self.index_map[item['label']]-1] += 1
 
-        # print(tem_object_vector)
-        return tem_object_vector
+        # print("object vector:", temp_object_vector)
+        return temp_object_vector
 
     def objectFrequencyEncodingVector(self, ann):
         temp_object_vector = np.zeros(len(self.index_map))
@@ -117,7 +127,7 @@ class SegmentLabel(object):
         for k, v in ann.items():
             temp_object_vector[self.index_map[k]] = int(v)
 
-        # print(temp_object_vector)
+        # print("object vector:", temp_object_vector)
         return temp_object_vector
 
     def spatialWeightVector(self, ann):
@@ -140,6 +150,7 @@ class SegmentLabel(object):
         #         else:
         #             tmp_tp_vector[k] = 1
 
+        # print("over time vector:", tmp_tp_vector)
         return tmp_tp_vector
 
     def temporalVariationVector(self, object_prev_vector, object_cur_vector):
@@ -154,6 +165,7 @@ class SegmentLabel(object):
         #     else:
         #         tmp_tp_vector[k] = 1
 
+        # print("time-based change vector:", tmp_tp_vector)
         return tmp_tp_vector
 
 
@@ -182,18 +194,19 @@ class SegmentLabel(object):
                * self.temporal_param*(np.divide(tt, t, out=tt, where=t != 0)) \
                * self.weight_param * self.weight_vector
 
-        print(tmp_dm)
-
-
+        # print(tmp_dm)
         return tmp_dm
 
 
 
     ##change to add more information to send to playdetect
     def labeling(self, first, last, table):
-        data_object = {"info": [], "start": first["frameName"], "end": last["frameName"]}
+        frame_duration = int(last["playbackNo"]) - int(first["playbackNo"])
+        #print(frame_time_start) 
+        data_object = {"info": [], "start": first["frameName"], "end": last["frameName"], "duration": frame_duration}
         for k, v in table.items():
-            data_object["info"].append({"label": k, "frequency": v})
+            data_object["info"].append({"label": k, "frequency": v / self.frame_cnt})
+        # print(data_object)
         # data_json = json.dumps(data_object)
         return data_object
 
@@ -213,9 +226,9 @@ class SegmentLabel(object):
         else:
             metric_dm = dm.sum()/(self.thresold_ratio*(len(self.index_map) * self.class_ratio))
 
-        print(metric_dm)
+        # print(metric_dm)
 
-        if max(0, metric_dm) < self.thresold_param:
+        if max(0, metric_dm) < self.thresold_param or self.duration < self.duration_highpass:
             return False
         else:
             return True
@@ -244,16 +257,19 @@ class SegmentLabel(object):
         anno_table = Counter()
         sceneSeg = None
         if not self.initilized:
-
             self.initial_frame = curr
+            self.last_frame = self.initial_frame
+            self.frame_cnt += 1
+            self.duration += 1
 
             entries = []
             ann = self.initial_frame["annotations"]
             for item in ann:
-                anno_table[item['label']] += 1
-                # self.hash_frames[self.initial_frame['frameName']][item['label']] += 1
-                temp_entry = (self.initial_frame['frameName'], self.initial_frame['frameName'], None, None, None, item['label'], str(anno_table[item['label']]), item['prob'], None)
-                entries.append(temp_entry)
+                if item['prob'] >= self.confidence_filter_param:
+                    anno_table[item['label']] += 1
+                    # self.hash_frames[self.initial_frame['frameName']][item['label']] += 1
+                    temp_entry = (self.initial_frame['frameName'], self.initial_frame['frameName'], None, None, None, item['label'], str(anno_table[item['label']]), item['prob'], None)
+                    entries.append(temp_entry)
 
             self.hash_frames[self.initial_frame['frameName']] = anno_table
             self.frame_info = anno_table
@@ -261,7 +277,7 @@ class SegmentLabel(object):
             # print(anno_table)
             # print(self.hash_frames)
 
-            c.executemany('INSERT INTO seglab VALUES (?,?,?,?,?,?,?,?,?)', entries)
+            #c.executemany('INSERT INTO seglab VALUES (?,?,?,?,?,?,?,?,?)', entries)
 
             #generate the combined label result
             frame_ann = self.updateFrameAnno(ann)
@@ -274,6 +290,8 @@ class SegmentLabel(object):
 
         else:
             curr_frame = curr
+            self.frame_cnt += 1
+            self.duration += 1
 
             entries = []
             ann = curr_frame["annotations"]
@@ -284,13 +302,14 @@ class SegmentLabel(object):
             #     anno_table = self.hash_frames[self.initial_frame["frameName"]]
 
             for item in ann:
-                anno_table[item['label']] += 1
-                # if curr_frame['frameName'] not in self.hash_frames:
-                #     self.hash_frames[self.initial_frame['frameName']] = {}
-                #
-                # self.hash_frames[self.initial_frame['frameName']][item['label']] += 1
-                temp_entry = (self.initial_frame['frameName'], curr_frame['frameName'], None, None, None, item['label'], str(anno_table[item['label']]), item['prob'], None)
-                entries.append(temp_entry)
+                if item['prob'] >= self.confidence_filter_param:
+                    anno_table[item['label']] += 1
+                    # if curr_frame['frameName'] not in self.hash_frames:
+                    #     self.hash_frames[self.initial_frame['frameName']] = {}
+                    #
+                    # self.hash_frames[self.initial_frame['frameName']][item['label']] += 1
+                    temp_entry = (self.initial_frame['frameName'], curr_frame['frameName'], None, None, None, item['label'], str(anno_table[item['label']]), item['prob'], None)
+                    entries.append(temp_entry)
 
             # if curr_frame['frameName'] not in self.hash_frames:
             #     self.hash_frames[curr_frame['frameName']] = anno_table
@@ -301,9 +320,11 @@ class SegmentLabel(object):
             # self.hash_frames[self.initial_frame['frameName']] += anno_table
 
             # print(anno_table)
+            for k, v in anno_table.items():
+                self.frame_info[k] += v
+            # print(self.frame_info)
 
-            c.executemany('INSERT INTO seglab VALUES (?,?,?,?,?,?,?,?,?)', entries)
-
+            #c.executemany('INSERT INTO seglab VALUES (?,?,?,?,?,?,?,?,?)', entries)
 
             # print(self.hash_frames)
             # sceneSeg_list = self.processFrames(self.hash_frames)
@@ -326,18 +347,23 @@ class SegmentLabel(object):
 
             ##detect scene change
             if self.thresold_check(self.dissimiliarityVector_simple(self.object_var_vector, tmp_prev_object, self.temporal_var_vector, tmp_temporal)):
-                sceneSeg = self.labeling(self.initial_frame, curr_frame, self.frame_info)
+                print(self.duration)
+                sceneSeg = self.labeling(self.initial_frame, self.last_frame, self.frame_info)
                 self.seg_num += 1
+                self.frame_cnt = 0.0
+                self.duration = 0
                 self.initial_frame = curr_frame
+                self.last_frame = self.initial_frame
                 self.frame_info = anno_table
 
+            self.last_frame = curr_frame
             self.last_segmented_frame = curr_frame
 
-        print(sceneSeg)
+        #print(sceneSeg)
         # c.close()
         self.conn.commit()
         if sceneSeg:
-            return json.dumps(sceneSeg)
+            return sceneSeg
         else:
             # print("no scene change detected!")
             return []
@@ -380,8 +406,8 @@ class SegmentLabel(object):
     def processFrames(self, hash_f):
         sceneSeg_list = []
         for fn, ann in hash_f.items():
-            print(fn)
-            print(ann)
+            #print(fn)
+            #print(ann)
             frame_ann = ann
 
             tmp_prev_object = self.object_prev_vector
