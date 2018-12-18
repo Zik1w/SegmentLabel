@@ -101,13 +101,6 @@ class PlayDetect(object):
         self.processLiveFrame(live_frame)
         self.top_table = Counter()
 
-        c_pick = self.resultSegConn.cursor()
-
-       # for row in c_pick.execute('SELECT * FROM segInfo GROUP BY start ORDER BY start'):
-       #    print(row)
-
-        c_pick.close()
-
         c_segQuery = self.resultSegConn.cursor()
         for s in self.historical_seg:
             #self.top_table[str(s["start"] + "_" + s["end"])] = self.segComparison(s)
@@ -127,24 +120,19 @@ class PlayDetect(object):
 
         self.tmp_top_table = {}
         for row in c_segQuery.execute('SELECT * FROM segInfo'):
-            print(row)
-            print(str(row[1]))
             segment_str = str(row[1])
-            segment = json.loads(segment_str.replace("'",'"'))
-            print(segment)
+            segment = json.loads(segment_str)
             segment['SceneName'] = str(row[0])
             print(segment)
-            self.tmp_top_table[row[0]] = self.segComparison(segment)
+            self.tmp_top_table[json.dumps(segment)] = self.segComparison(segment)
             pass
 
         c_segQuery.close()
 
 
-        #print("most similarity frames are:" + str(self.top_table.most_common(self.topNumber)))
-        #return self.top_table.most_common(self.topNumber)
-
-        top_sorted_seg = sorted(self.top_table, key=self.top_table.get, reverse=True)[:self.topNumber]
-        # top_sorted_seg = sorted(self.tmp_top_table, key=self.tmp_top_table.get, reverse=True)[:self.topNumber]
+        # top_sorted_seg=self.top_table.most_common(self.topNumber)
+        # top_sorted_seg = sorted(self.top_table, key=self.top_table.get, reverse=True)[:self.topNumber]
+        top_sorted_seg = sorted(self.tmp_top_table, key=self.tmp_top_table.get, reverse=True)[:self.topNumber]
 
         tmp_seg = []
         for s in top_sorted_seg:
@@ -171,7 +159,7 @@ class PlayDetect(object):
         resultseg_entry = (str(segName), segInfo['start'], segInfo['end'], None, None, None, str(segInfo["info"]))  #replace last entry with segment information
         c.execute('INSERT INTO segResult VALUES (?,?,?,?,?,?,?)', resultseg_entry)
 
-        resultseg_info_entry = (str(segName), str(segInfo))
+        resultseg_info_entry = (str(segName), json.dumps(segInfo))
         c.execute('INSERT INTO segInfo VALUES (?,?)', resultseg_info_entry)
 
         c.close()
@@ -180,7 +168,7 @@ class PlayDetect(object):
     def itIsTimeToQueryDatabase(self):
         now = Common.getNowMilliseconds()
         #print(now)
-	#print(self.previousPublishMs + self.publishIntervalMs)
+	    #print(self.previousPublishMs + self.publishIntervalMs)
         if now  >= self.previousPublishMs + self.publishIntervalMs:
             self.previousPublishMs = now
             return True
