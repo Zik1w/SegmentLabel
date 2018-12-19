@@ -44,9 +44,10 @@ def dump(*list):
         result += (element if type(element) is str else str(element)) + " "
     print(result)
 
-def main(index_f, weight_f, config_f, consumerMode, fetchPrefix, publishPrefix):
+def main(index_f, weight_f, config_f, consumerMode, th, fetchPrefix, publishPrefix):
     # The default Face will connect using a Unix socket, or to "localhost".
-    sl = SegmentLabel(index_f, weight_f)
+    instance_prefix = fetchPrefix.split("/")[-1]
+    sl = SegmentLabel(index_f, weight_f, instance_prefix, th)
 
     if config_f != "":
         sl.readConfig(config_f)
@@ -62,13 +63,14 @@ def main(index_f, weight_f, config_f, consumerMode, fetchPrefix, publishPrefix):
     stream_annConsumer_show = Namespace(fetchPrefix)
     stream_annConsumer_show.setFace(face)
 
-    log_f = open(str("seglab") + ".txt", "w")
+    log_f = open(str("seglab_log") + ".txt", "w")
     log_f.close()
 
 
     stream_segProducer = Namespace(Name(publishPrefix).append(Name(fetchPrefix)[-1]), keyChain)
     print(' > Will publish segments under '+str(stream_segProducer.getName()))
     publish_handler = GeneralizedObjectStreamHandler()
+    # publish_handler.setLatestPacketFreshnessPeriod(30)
     stream_segProducer.setHandler(publish_handler)
 
     stream_segProducer.setFace(face,
@@ -79,7 +81,8 @@ def main(index_f, weight_f, config_f, consumerMode, fetchPrefix, publishPrefix):
         ann = str(objectNamespace.obj)
         segment_result = []
 
-        # print("New Annotation")
+        jsonAnn = json.loads(ann)
+        # print(jsonAnn["frameName"])
 
         if not "error" in ann:
             jsonAnn = json.loads(ann)
@@ -91,9 +94,6 @@ def main(index_f, weight_f, config_f, consumerMode, fetchPrefix, publishPrefix):
                 #     ", content-type", contentMetaInfo.getContentType(), ":",
                 #     str(jsonAnn["frameName"]), 'at', str(time.time()))
 
-                # dump(time.time(), "Publish scene HERE")
-                # dump(time.time(), "publishing scene (segment)",
-                #     publish_handler.getProducedSequenceNumber() + 1)
                 publish_handler.addObject(
                     Blob(json.dumps(segment_result)),
                     "application/json")
@@ -102,11 +102,11 @@ def main(index_f, weight_f, config_f, consumerMode, fetchPrefix, publishPrefix):
 
                 # # logging the result
                 # if segment_result:
-                with open(str("seglab") + ".txt", "w+") as f:
+                with open(str("seglab_log") + ".txt", "w+") as f:
                     f.write("PUBLISHED SCENE: %s" % str(publish_handler.getProducedSequenceNumber()))
                     f.write("%s\r\n" % segment_result)
 
-    pipelineSize = 10
+    pipelineSize = 0
 
     #if consumerMode == 'default':
     #    stream_annConsumer_default.setHandler(
@@ -130,14 +130,14 @@ if __name__ == "__main__":
     parser.add_argument("-w", "--object weights", dest='weightFile', nargs='?', const=1, type=str, default="config/object_weight.csv", help='object weight file')
     parser.add_argument("-c", "--algorithm config", dest="configureFile", nargs='?', const=1, type=str, default="", help='algorithm configuraiton file')
     parser.add_argument("-m", "--running mode", dest='mode', nargs='?', const=1, type=str, default="", help='the mode for fetching data')
+    parser.add_argument("-th", "--threshold", dest='threshold', nargs='?', const=1, type=float, default=0.4, help='adjust threshold of scene change')
     parser.add_argument("-f", "--fetch", dest='fetch', nargs='?', const=1, type=str, default="", help='prefix for fetching data')
     parser.add_argument("-p", "--publish", dest='publish', nargs='?', const=1, type=str, default="/eb/seglab", help='prefix for publishing segments')
-    parser.add_argument("-th", "--threshold", dest='threshold', nargs='?', const=1, type=float, default=0.5, help='adjust threshold of scene change')
 
     args = parser.parse_args()
 
     try:
-        main(args.indexFile, args.weightFile, args.configureFile, args.mode, args.fetch, args.publish)
+        main(args.indexFile, args.weightFile, args.configureFile, args.threshold, args.mode, args.fetch, args.publish)
 
     except:
         traceback.print_exc(file=sys.stdout)

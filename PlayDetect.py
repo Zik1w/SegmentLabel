@@ -6,26 +6,28 @@ import numpy as np
 from pyndn.util.common import Common
 
 class PlayDetect(object):
-    def __init__(self, label_file, weight_file, topNumber, query_interval):
+    def __init__(self, label_file, weight_file, instance_prefix=None, topNumber=10, query_interval=1):
         self.index_map = self._objectIndexVector(label_file)
         self.weight_vector = self._objectWeightVector(weight_file)
         self.live_frame = None
         self.historical_seg = []
         self.frame_table = Counter()
         self.top_table = Counter()
-        self.compareSegConn = sqlite3.connect('seglab.db')
-        self.resultSegConn = sqlite3.connect('playdetect.db')
         self.topNumber = topNumber
         self.previousPublishMs = Common.getNowMilliseconds()
         self.publishIntervalMs = 1000.0 * query_interval
-
         self.tmp_top_table = {}
+
+        if instance_prefix:
+            self.resultSegConn = sqlite3.connect('playdetect_' + str(instance_prefix) + '.db')
+        else:
+            self.resultSegConn = sqlite3.connect('playdetect.db')
 
         c_init = self.resultSegConn.cursor()
 
-        # c_init.execute("drop table if exists segResult")
-        #
-        # c_init.execute("drop table if exists segInfo")
+        c_init.execute("drop table if exists segResult")
+
+        c_init.execute("drop table if exists segInfo")
 
         c_init.execute('''CREATE TABLE IF NOT EXISTS segResult
                      (SceneName TEXT, StartFrame TEXT, EndFrame, TEXT Date DATE, Run TEXT, Scene TEXT, Summary TEXT,
@@ -123,7 +125,7 @@ class PlayDetect(object):
             segment_str = str(row[1])
             segment = json.loads(segment_str)
             segment['SceneName'] = str(row[0])
-            print(segment)
+            # print(segment)
             self.tmp_top_table[json.dumps(segment)] = self.segComparison(segment)
             pass
 
@@ -135,26 +137,24 @@ class PlayDetect(object):
         top_sorted_seg = sorted(self.tmp_top_table, key=self.tmp_top_table.get, reverse=True)[:self.topNumber]
 
         tmp_seg = []
+        print("most similarity scenes are:")
         for s in top_sorted_seg:
-            tmp_seg.append(json.loads(s))
+            seg = json.loads(s)
+            print(seg["info"])
+            tmp_seg.append(seg)
 
         result_sorted_seg = {'segment': tmp_seg}
 
         # result_sorted_seg = d = {k: v for k, v in enumerate(top_sorted_seg)}
-
-        print("most similarity frames are:" + str(result_sorted_seg))
         return result_sorted_seg
 
     def sort(self):
         pass
 
     def storeToDatabase(self, segName, segInfo):
-        print(segInfo)
 
         self.processSeg(segInfo)
         c = self.resultSegConn.cursor()
-
-        # print(segInfo["info"])
 
         resultseg_entry = (str(segName), segInfo['start'], segInfo['end'], None, None, None, str(segInfo["info"]))  #replace last entry with segment information
         c.execute('INSERT INTO segResult VALUES (?,?,?,?,?,?,?)', resultseg_entry)
@@ -163,6 +163,9 @@ class PlayDetect(object):
         c.execute('INSERT INTO segInfo VALUES (?,?)', resultseg_info_entry)
 
         c.close()
+
+        # self.compareSegConn.commit()
+        self.resultSegConn.commit()
     
 
     def itIsTimeToQueryDatabase(self):

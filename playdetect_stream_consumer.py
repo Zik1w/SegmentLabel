@@ -46,7 +46,8 @@ def dump(*list):
 
 def main(index_f, weight_f, consumerMode, k, query_interval, fetchPrefix, publishPrefix):
     # The default Face will connect using a Unix socket, or to "localhost".
-    pd = PlayDetect(index_f, weight_f, k, query_interval)
+    instance_prefix = fetchPrefix.split("/")[-1]
+    pd = PlayDetect(index_f, weight_f, instance_prefix, k, query_interval)
 
     face = Face()
     keyChain = KeyChain()
@@ -71,7 +72,7 @@ def main(index_f, weight_f, consumerMode, k, query_interval, fetchPrefix, publis
 
     annotationsConsumer.setFace(face)
 
-    log_f = open(str("playdetect") + ".txt", "w")
+    log_f = open(str("playdetect_log") + ".txt", "w")
     log_f.close()
 
 
@@ -79,7 +80,8 @@ def main(index_f, weight_f, consumerMode, k, query_interval, fetchPrefix, publis
     print(' > Will publish playdetect data under '+playdetectProducer.getName().toUri())
 
     playdSegmentsHandler = GeneralizedObjectStreamHandler()
-    # TODO: set freshness to 0
+    # set freshness to 30
+    # playdSegmentsHandler.setLatestPacketFreshnessPeriod(30)
     playdetectProducer.setHandler(playdSegmentsHandler)
 
     playdetectProducer.setFace(face,
@@ -116,19 +118,22 @@ def main(index_f, weight_f, consumerMode, k, query_interval, fetchPrefix, publis
                         Blob(json.dumps(result)),
                         "application/json")
 
+                    print("PUBLISH SIMILAR SCENES: %s" % str(playdSegmentsHandler.getProducedSequenceNumber()))
+
 
                     #logging the result
-                    with open(str("playdetect") + ".txt", "w+") as f:
+                    with open(str("playdetect_log") + ".txt", "w+") as f:
                         f.write("PUBLISHED SCENE: %s" % str(playdSegmentsHandler.getProducedSequenceNumber()))
                         f.write("%s\r\n" % result)
 
 
-    pipelineSize = 10
+    pipelineSize_segConsume = 3
     sceneConsumer.setHandler(
-        GeneralizedObjectStreamHandler(pipelineSize, onNewScene)).objectNeeded()
+        GeneralizedObjectStreamHandler(pipelineSize_segConsume, onNewScene)).objectNeeded()
 
+    pipelineSize_annoConsume = 3
     annotationsConsumer.setHandler(
-        GeneralizedObjectStreamHandler(pipelineSize, onNewAnnotation)).objectNeeded()
+        GeneralizedObjectStreamHandler(pipelineSize_annoConsume, onNewAnnotation)).objectNeeded()
 
     while True:
         face.processEvents()
@@ -143,7 +148,7 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--running mode", dest='mode', nargs='?', const=1, type=str, default="", help='the mode for fetching data')
     parser.add_argument("-f", "--fetch", dest='fetch', nargs='?', const=1, type=str, default="", help='prefix for fetching data')
     parser.add_argument("-p", "--publish", dest='publish', nargs='?', const=1, type=str, default="/eb/playdetect/segments", help='prefix for publishing segments')
-    parser.add_argument("-t", "--interval", dest='query_interval', nargs='?', const=1, type=str, default=0.1, help='interval for query historical scenes')
+    parser.add_argument("-t", "--interval", dest='query_interval', nargs='?', const=1, type=str, default=5, help='interval for query historical scenes, unit in second')
 
 
     args = parser.parse_args()

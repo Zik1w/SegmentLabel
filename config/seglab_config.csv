@@ -1,0 +1,15 @@
+﻿Param,Value
+AnnoProFilter ,0.05
+Weight,1
+Object,1
+Time,1
+Size,1
+Overtime,0.01
+FrameRate,25
+MinSceneDuration,25
+WeightForAdd,1
+WeightForRemove,1
+Sum,0
+FrequenceThreshold,3
+ClassRatio,0.01
+Threshold,0.5
