@@ -9,14 +9,14 @@ PlayDetect.py: Class file for play detect module
 seglab_test.py: standalone test for scene segment algorithm
 
 ## Work Flow
-- Initialize the publisher of annotataion in the server[prefix:'/eb/proto/test/ml_processing/yolo'] OR run the simulation anno_publisher.py [prefix:"/ndn/eb/stream/run/28/annotations"]
+- First the publisher of annotataion in the server[prefix:'/eb/proto/test/ml_processing/yolo'] OR run the simulation anno_publisher.py [prefix:"/ndn/eb/stream/run/28/annotations"]
 - Run the seglab_stream_consumer.py file accordingly with corresponding prefix from the annotation publisher
     - Fetch frame annotations from the publisher
     - Publish the scene segment result
 - Run the playdetect_stream_consumer.py,
-    - Fetch scene segment json string that produced by seglab_stream_consumer.py and store the scene segment
+    - Fetch scene segment json string that produced by seglab_stream_consumer.py and store the scene segment into corresponding sqlite database
     - Fetches the new annotation for the live frame and query the database to retrieve most similar scene [prefix:'/eb/proto/test/ml_processing/yolo']
-    - Publish the
+    - Publish the similar scenes
 
 
 
