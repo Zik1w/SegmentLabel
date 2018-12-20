@@ -3,18 +3,25 @@ import json
 import csv
 import sqlite3
 import numpy as np
+from pyndn.util.common import Common
 
 class PlayDetect(object):
-    def __init__(self, label_file, weight_file, config_file=None):
+    def __init__(self, label_file, weight_file, instance_prefix=None, topNumber=10, query_interval=1):
         self.index_map = self._objectIndexVector(label_file)
         self.weight_vector = self._objectWeightVector(weight_file)
         self.live_frame = None
         self.historical_seg = []
         self.frame_table = Counter()
         self.top_table = Counter()
-        self.compareSegConn = sqlite3.connect('seglab.db')
-        self.resultSegConn = sqlite3.connect('playdetect.db')
-        self.topNumber = 10
+        self.topNumber = topNumber
+        self.previousPublishMs = Common.getNowMilliseconds()
+        self.publishIntervalMs = 1000.0 * query_interval
+        self.tmp_top_table = {}
+
+        if instance_prefix:
+            self.resultSegConn = sqlite3.connect('playdetect_' + str(instance_prefix) + '.db')
+        else:
+            self.resultSegConn = sqlite3.connect('playdetect.db')
 
         c_init = self.resultSegConn.cursor()
 
@@ -23,12 +30,16 @@ class PlayDetect(object):
         c_init.execute("drop table if exists segInfo")
 
         c_init.execute('''CREATE TABLE IF NOT EXISTS segResult
-                     (SceneSegName TEXT, StartFrame TEXT, EndFrame, TEXT Date DATE, Run TEXT, Scene TEXT, Summary TEXT, 
-                     PRIMARY KEY(SceneSegName))''')
+                     (SceneName TEXT, StartFrame TEXT, EndFrame, TEXT Date DATE, Run TEXT, Scene TEXT, Summary TEXT,
+                     PRIMARY KEY(SceneName))''')
+
+        #c_init.execute('''CREATE TABLE IF NOT EXISTS segInfo
+        #             (Start TEXT, Frame TEXT, Date DATE, Run TEXT, Scene TEXT, Class TEXT, Label TEXT, Prob REAL, Location REAL,
+        #             PRIMARY KEY(Start, Frame, Class, Label))''')
 
         c_init.execute('''CREATE TABLE IF NOT EXISTS segInfo
-                     (Start TEXT, Frame TEXT, Date DATE, Run TEXT, Scene TEXT, Class TEXT, Label TEXT, Prob REAL, Location REAL, 
-                     PRIMARY KEY(Start, Frame, Class, Label))''')
+                     (SceneName TEXT, SceneInfo TEXT)''')
+
 
         c_init.close()
 
@@ -78,10 +89,12 @@ class PlayDetect(object):
             # self.frame_table[item['label']] += self.weight_vector[self.index_map[item['label']]]
             self.frame_table[item['label']] += 1
 
-    def segComparsion(self, seg):
+    def segComparison(self, seg):
         weighted_similarity = 0
         for k in seg["info"]:
+            # weighted_similarity += min((k["frequency"], self.frame_table[k["label"]]))
             weighted_similarity += min((k["frequency"], self.frame_table[k["label"]]))
+
 
         return weighted_similarity
 
@@ -90,135 +103,79 @@ class PlayDetect(object):
         self.processLiveFrame(live_frame)
         self.top_table = Counter()
 
-        c_pick = self.resultSegConn.cursor()
-
-        for row in c_pick.execute('SELECT * FROM segInfo GROUP BY start ORDER BY start'):
-            print(row)
-
-        c_pick.close()
-
+        c_segQuery = self.resultSegConn.cursor()
         for s in self.historical_seg:
-            self.top_table[s[-1]] = self.segComparsion(s)
+            #self.top_table[str(s["start"] + "_" + s["end"])] = self.segComparison(s)
 
-        print("most similarity frames are:" + str(self.top_table.most_common(self.topNumber)))
-        return self.top_table.most_common(self.topNumber)
+            c_segQuery = self.resultSegConn.cursor()
+            segQuery = []
+            segQuery.append(s["start"])
+            segQuery.append(s["end"])
+            segName = ''
+            for row in c_segQuery.execute('SELECT * FROM segResult WHERE StartFrame = ? AND EndFrame = ?', segQuery):
+                segName = (row[0])
+
+            s['SceneName'] = segName
+            self.top_table[json.dumps(s)] = self.segComparison(s)
+            # self.top_table[str(s)] = self.segComparison(s)
+
+
+        self.tmp_top_table = {}
+        for row in c_segQuery.execute('SELECT * FROM segInfo'):
+            segment_str = str(row[1])
+            segment = json.loads(segment_str)
+            segment['SceneName'] = str(row[0])
+            # print(segment)
+            self.tmp_top_table[json.dumps(segment)] = self.segComparison(segment)
+            pass
+
+        c_segQuery.close()
+
+
+        # top_sorted_seg=self.top_table.most_common(self.topNumber)
+        # top_sorted_seg = sorted(self.top_table, key=self.top_table.get, reverse=True)[:self.topNumber]
+        top_sorted_seg = sorted(self.tmp_top_table, key=self.tmp_top_table.get, reverse=True)[:self.topNumber]
+
+        tmp_seg = []
+        print("most similarity scenes are:")
+        for s in top_sorted_seg:
+            seg = json.loads(s)
+            print(seg["SceneName"])
+            tmp_seg.append(seg)
+
+        result_sorted_seg = {'segment': tmp_seg}
+
+        # result_sorted_seg = d = {k: v for k, v in enumerate(top_sorted_seg)}
+        return result_sorted_seg
 
     def sort(self):
         pass
 
     def storeToDatabase(self, segName, segInfo):
-        # print(segName)
 
         self.processSeg(segInfo)
         c = self.resultSegConn.cursor()
 
-        # print(segInfo["info"])
-
-        resultseg_entry = (str(segName), segInfo['start'], segInfo['end'], None, None, None, str(segInfo["info"]))  #replace last entry with segment information
-
-        print(resultseg_entry)
-
-        c.execute('INSERT INTO segResult VALUES (?,?,?,?,?,?,?)', resultseg_entry)
-
+        # resultseg_entry = (str(segName), segInfo['start'], segInfo['end'], None, None, None, str(segInfo["info"]))  #replace last entry with segment information
         # c.execute('INSERT INTO segResult VALUES (?,?,?,?,?,?,?)', resultseg_entry)
+
+        resultseg_info_entry = (str(segName), json.dumps(segInfo))
+        c.execute('INSERT INTO segInfo VALUES (?,?)', resultseg_info_entry)
 
         c.close()
 
+        # self.compareSegConn.commit()
+        self.resultSegConn.commit()
+    
+
+    def itIsTimeToQueryDatabase(self):
+        now = Common.getNowMilliseconds()
+        #print(now)
+	    #print(self.previousPublishMs + self.publishIntervalMs)
+        if now  >= self.previousPublishMs + self.publishIntervalMs:
+            self.previousPublishMs = now
+            return True
+        else:
+            return False
 
 
-# def main():
-#     ###set up database
-#     client = MongoClient('localhost', 27017)
-#
-#     db = client['segment-database']
-#
-#     ##readin feature weights
-#     weight_vector = {}
-#     with open('config/object_weight.csv', newline='') as csvfile:
-#         reader3 = csv.DictReader(csvfile)
-#
-#         for row in reader3:
-#             weight_vector[row['label']] = row['Weight']
-#
-#     jsonString = "data/matrix.json"
-#     curr = []
-#     for line in open(jsonString, 'r'):
-#         curr.append(json.loads(line))
-#
-#     curr_list = []
-#     for ann in curr:
-#         temp = []
-#         frameName = ann['frameName']
-#         # print(frameName)
-#         for k in ann["annotations"]:
-#             # temp.append({"label": ''.join([i for i in k["label"] if not i.isdigit()]), "prob": k["prob"]})
-#             temp.append({"label": ''.join([i for i in k["label"] if not i.isdigit()]), "ytop": k["ytop"],
-#                          "ybottom": k["ybottom"], "xleft": k["xleft"], "xright": k["xright"], "prob": k["prob"],
-#                          "frameName": frameName})
-#         curr_list.append(temp)
-#
-#
-#     initial_frame = curr_list[0]
-#     last_frame = curr_list[-1]
-#
-#     cnt = 0
-#     frame_table = Counter()
-#     frame_weight = 0
-#     for item in initial_frame:
-#         tmp_weight = weight_vector[item['label']]
-#         frame_weight += tmp_weight
-#         frame_table[item['label']] += tmp_weight
-#
-#
-#     # last_table = Counter()
-#     # last_weight = 0
-#     # for item in last_frame:
-#     #     tmp_weight = weight_vector[item['label']]
-#     #     last_weight += tmp_weight
-#     #     last_table[item['label']] += tmp_weight
-#
-#     #####L1 NORM
-#     x = 0.5
-#     y = 0.5
-#     bound = 0.5
-#     # weights = (x*initial_weight+y*last_weight)
-#     weights = frame_weight
-#     low_weight = weights * (1 - bound)
-#     high_weight = weights * (1 + bound)
-#
-#
-#     ####EXECUTE QUERY
-#     weight_query = { "weights": { "$gt": low_weight, "lt": high_weight } }
-#
-#     similar_frames = db.bios.find(weight_query)
-#     index_frames = range(len(similar_frames))
-#
-#     top_seg = 10
-#
-#     #####SORT and FIND TOP K Segments
-#     sort_table = Counter()
-#     cnt = 0
-#     for item in similar_frames:
-#         sort_table[str(cnt)] = item["weights"] - weights
-#         cnt +=1
-#
-#     top_frames = sort_table.most_common(top_seg)
-#
-#     sorted_similar_frames = []
-#
-#     for kv in sort_table.most_common(top_seg).keys():
-#         sorted_similar_frames.append(similar_frames[int(kv)])
-#
-#     # db.bios.find(
-#     #     {start_weight:
-#     #         { $gt: value1, $lt: value2}
-#     #
-#     #     },
-#     #
-#     #     {start_weight:
-#     #         { $gt: value1, $lt: value2}
-#     #
-#     #     },
-#     # );
-#
-#     return sorted_similar_frames

@@ -79,7 +79,7 @@ scissors,77,1
 teddy bear,78,1
 hair drier,79,1
 toothbrush,80,1
-staffed_duck,81,1
+stuffed_duck,81,1
 stuffed_dog,82,1
 stuffed_rabbit,83,1
 stuffed_bear,84,1
@@ -87,10 +87,13 @@ single_ham,85,1
 ham_cheese,86,1
 ham_tomato,87,1
 ham_grape,88,1
-yellow_jar,89,1
-green_jar,90,1
-show_cup,91,1
-Rey_Jarrel,92,1
+cup_show,89,1
+yellow_jar,90,1
+Taji_Senior,91,1
+Rey_Jarrell,92,1
 Jamie_Atlas,93,1
-Taji_Senior,94,1
-Michael_Bauer,95,1
+Michael_Bauer,94,1
+Rey_Jarrell_F,95,1
+Jamie_Atlas_F,96,1
+Taji_Senior_F,97,1
+Michael_Bauer_F,98,1

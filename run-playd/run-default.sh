@@ -1,4 +1,4 @@
 #!/bin/bash
 
 #python seglab_stream_consumer.py -f /eb/proto/test/ml_processing/yolo_default &> seglab-default.out
-python ../playdetect_stream_consumer.py -i `pwd`/../config/object_label.csv -w `pwd`/../config/object_weight.csv -f /eb/proto/test/ml_processing/yolo_default
+python ../playdetect_stream_consumer.py -i `pwd`/../config/object_label.csv -w `pwd`/../config/object_weight.csv -f /eb/proto/test/ml_processing/yolo_default2

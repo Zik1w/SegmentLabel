@@ -15,7 +15,7 @@ from collections import Counter
 
 
 class SegmentLabel(object):
-    def __init__(self, label_file, weight_file, config_file=None):
+    def __init__(self, label_file, weight_file, instance_prefix=None, th=None, config_file=None):
         self.index_map = self._objectIndexVector(label_file)
         self.weight_vector = self._objectWeightVector(weight_file)
         self.object_prev_vector = None
@@ -24,21 +24,31 @@ class SegmentLabel(object):
         self.temporal_var_vector = None
         self.spatial_prev_vector = None
         self.spatial_cur_vector = None
+        self.initalFrame_object_vector = None
+        self.initalFrame_temporal_vector = None
 
 
         self.seg_num = 0
+        self.frame_cnt = 0.0
         self.initilized = False
         self.initial_frame = None
+        self.last_frame = None
+        self.duration = 0
+        self.duration_highpass = 25
         self.last_segmented_frame = None
-        self.conn = sqlite3.connect('seglab.db')
         self.frame_info = Counter()
         self.hash_frames = {}
         self.hash_begin_frame = {}
         self.hash_begin_frame = {}
         self.hash_frame_info = {}
+        self.conn = sqlite3.connect('seglab.db')
+        if instance_prefix:
+            self.conn = sqlite3.connect('seglab_' + str(instance_prefix) + '.db')
+        else:
+            self.conn = sqlite3.connect('seglab.db')
 
-
-
+        #####Configuable Parameters########
+        self.confidence_filter_param = 0.05
         self.weight_param = 1.0
         self.object_param = 1.0
         self.temporal_param = 1.0
@@ -50,20 +60,26 @@ class SegmentLabel(object):
         self.thresold_sum_option = 1     #0 for L1-norm, 1 for L2-norm
         self.thresold_ratio = 3
         self.class_ratio = 0.01
-        self.thresold_param = 0.5
-        # self.thresold_param = 0.000001   # single frame scene
+        self.inital_weight = 0.0
+        self.previous_weight = 1.0
+
+        if th:
+            self.thresold_param = th
+        else:
+            self.thresold_param = 0.4
+            # self.thresold_param = 0.00000001   # single frame scene
         self.readConfig(config_file)
 
 
-        c_init = self.conn.cursor()
-
-        c_init.execute("drop table if exists seglab")
-
-        c_init.execute('''CREATE TABLE IF NOT EXISTS seglab
-                     (Start TEXT, Frame TEXT, Date DATE, Run TEXT, Scene TEXT, Class TEXT, Label TEXT, Prob REAL, Location REAL, 
-                     PRIMARY KEY(Start, Frame, Class, Label))''')
-
-        c_init.close()
+        # c_init = self.conn.cursor()
+        #
+        # c_init.execute("drop table if exists seglab")
+        #
+        # c_init.execute('''CREATE TABLE IF NOT EXISTS seglab
+        #              (Start TEXT, Frame TEXT, Date DATE, Run TEXT, Scene TEXT, Class TEXT, Label TEXT, Prob REAL, Location REAL,
+        #              PRIMARY KEY(Start, Frame, Class, Label))''')
+        #
+        # c_init.close()
 
 
     @staticmethod
@@ -73,6 +89,7 @@ class SegmentLabel(object):
             reader = csv.DictReader(csvfile)
             for row in reader:
                 index_map[row['label']] = int(row['Number'])
+        # print(len(index_map))
         return index_map
 
     def updateIndex(self, label_file):
@@ -102,13 +119,14 @@ class SegmentLabel(object):
         self.weight_vector = tmp_weight_vector
 
     def objectEncodingVector(self, ann):
-        tem_object_vector = np.zeros(len(self.index_map))
+        temp_object_vector = np.zeros(len(self.index_map))
 
         for item in ann:
-            tem_object_vector[self.index_map[item['label']]-1] += 1
+            if item['prob'] >= self.confidence_filter_param:
+                temp_object_vector[self.index_map[item['label']]-1] += 1
 
-        # print(tem_object_vector)
-        return tem_object_vector
+        # print("object vector:", temp_object_vector)
+        return temp_object_vector
 
     def objectFrequencyEncodingVector(self, ann):
         temp_object_vector = np.zeros(len(self.index_map))
@@ -117,7 +135,7 @@ class SegmentLabel(object):
         for k, v in ann.items():
             temp_object_vector[self.index_map[k]] = int(v)
 
-        # print(temp_object_vector)
+        # print("object vector:", temp_object_vector)
         return temp_object_vector
 
     def spatialWeightVector(self, ann):
@@ -140,6 +158,7 @@ class SegmentLabel(object):
         #         else:
         #             tmp_tp_vector[k] = 1
 
+        # print("over time vector:", tmp_tp_vector)
         return tmp_tp_vector
 
     def temporalVariationVector(self, object_prev_vector, object_cur_vector):
@@ -154,6 +173,7 @@ class SegmentLabel(object):
         #     else:
         #         tmp_tp_vector[k] = 1
 
+        # print("time-based change vector:", tmp_tp_vector)
         return tmp_tp_vector
 
 
@@ -178,22 +198,29 @@ class SegmentLabel(object):
 
 
     def dissimiliarityVector_simple(self, ft, f, tt, t):
-        tmp_dm =  self.object_param*(np.divide(ft, f, out=ft, where=f != 0)) \
+        prev_dm =  self.object_param*(np.divide(ft, f, out=ft, where=f != 0)) \
                * self.temporal_param*(np.divide(tt, t, out=tt, where=t != 0)) \
                * self.weight_param * self.weight_vector
 
-        #print(tmp_dm)
+        # self.initalFrame_object_vector = f
+        # self.initalFrame_temporal_vector = t
 
+        init_dm =  self.object_param*(np.divide(ft, self.initalFrame_object_vector, out=ft, where=self.initalFrame_object_vector != 0.0)) \
+               * self.temporal_param*(np.divide(tt, self.initalFrame_temporal_vector, out=tt, where=self.initalFrame_temporal_vector != 0.0)) \
+               * self.weight_param*self.weight_vector
 
-        return tmp_dm
+        return self.previous_weight*prev_dm + self.inital_weight*init_dm
 
 
 
     ##change to add more information to send to playdetect
     def labeling(self, first, last, table):
-        data_object = {"info": [], "start": first["frameName"], "end": last["frameName"]}
+        frame_duration = int(last["playbackNo"]) - int(first["playbackNo"])
+        #print(frame_time_start) 
+        data_object = {"info": [], "start": first["frameName"], "end": last["frameName"], "duration": frame_duration}
         for k, v in table.items():
-            data_object["info"].append({"label": k, "frequency": v})
+            data_object["info"].append({"label": k, "frequency": v / self.frame_cnt})
+        # print(data_object)
         # data_json = json.dumps(data_object)
         return data_object
 
@@ -213,19 +240,15 @@ class SegmentLabel(object):
         else:
             metric_dm = dm.sum()/(self.thresold_ratio*(len(self.index_map) * self.class_ratio))
 
-        #print(metric_dm)
+        print(metric_dm)
 
-        if max(0, metric_dm) < self.thresold_param:
+        if max(0, metric_dm) < self.thresold_param or self.duration < self.duration_highpass:
             return False
         else:
             return True
 
 
     def processAnnotation(self, curr):
-
-        # print("current frame is:")
-        # print(curr)
-
         c = self.conn.cursor()
 
         # curr = []
@@ -240,28 +263,30 @@ class SegmentLabel(object):
         #                      "ybottom": k["ybottom"], "xleft": k["xleft"], "xright": k["xright"], "prob": k["prob"],
         #                      "frameName": frameName})
         #     curr_list.append(temp)
+
         # self.hash_frames[self.initial_frame['frameName']] = Counter()
         anno_table = Counter()
         sceneSeg = None
         if not self.initilized:
-
             self.initial_frame = curr
+            self.last_frame = self.initial_frame
+            self.frame_cnt += 1
+            self.duration += 1
 
             entries = []
             ann = self.initial_frame["annotations"]
             for item in ann:
-                anno_table[item['label']] += 1
-                # self.hash_frames[self.initial_frame['frameName']][item['label']] += 1
-                temp_entry = (self.initial_frame['frameName'], self.initial_frame['frameName'], None, None, None, item['label'], str(anno_table[item['label']]), item['prob'], None)
-                entries.append(temp_entry)
+                if item['prob'] >= self.confidence_filter_param:
+                    anno_table[item['label']] += 1
+                    # self.hash_frames[self.initial_frame['frameName']][item['label']] += 1
+                    temp_entry = (self.initial_frame['frameName'], self.initial_frame['frameName'], None, None, None, item['label'], str(anno_table[item['label']]), item['prob'], None)
+                    entries.append(temp_entry)
 
             self.hash_frames[self.initial_frame['frameName']] = anno_table
             self.frame_info = anno_table
 
-            # print(anno_table)
-            # print(self.hash_frames)
-
-            c.executemany('INSERT INTO seglab VALUES (?,?,?,?,?,?,?,?,?)', entries)
+            #c.executemany('INSERT INTO seglab VALUES (?,?,?,?,?,?,?,?,?)', entries)
+            #c.close()
 
             #generate the combined label result
             frame_ann = self.updateFrameAnno(ann)
@@ -269,28 +294,38 @@ class SegmentLabel(object):
             self.object_prev_vector = self.objectEncodingVector(frame_ann)
             self.spatial_prev_vector = self.spatialWeightVector(frame_ann)
             self.temporal_prev_vector = self.temporalWeightVector(self.object_prev_vector)
+            self.initalFrame_object_vector = self.object_prev_vector
+            self.initalFrame_temporal_vector = self.temporal_prev_vector
             self.initilized = True
 
 
         else:
             curr_frame = curr
-
-            entries = []
             ann = curr_frame["annotations"]
+            entries = []
             anno_table = Counter()
+            self.frame_cnt += 1
+            self.duration += 1
+
             # if not self.hash_frames.get(curr_frame["frameName"]):
             #     self.hash_frames[self.initial_frame["frameName"]] = anno_table
             # else:
             #     anno_table = self.hash_frames[self.initial_frame["frameName"]]
 
             for item in ann:
-                anno_table[item['label']] += 1
-                # if curr_frame['frameName'] not in self.hash_frames:
-                #     self.hash_frames[self.initial_frame['frameName']] = {}
-                #
-                # self.hash_frames[self.initial_frame['frameName']][item['label']] += 1
-                temp_entry = (self.initial_frame['frameName'], curr_frame['frameName'], None, None, None, item['label'], str(anno_table[item['label']]), item['prob'], None)
-                entries.append(temp_entry)
+                if item['prob'] >= self.confidence_filter_param:
+                    anno_table[item['label']] += 1
+                    # if curr_frame['frameName'] not in self.hash_frames:
+                    #     self.hash_frames[self.initial_frame['frameName']] = {}
+                    #
+                    # self.hash_frames[self.initial_frame['frameName']][item['label']] += 1
+                    temp_entry = (self.initial_frame['frameName'], curr_frame['frameName'], None, None, None, item['label'], str(anno_table[item['label']]), item['prob'], None)
+                    entries.append(temp_entry)
+
+            print(anno_table)
+
+            # c.executemany('INSERT INTO seglab VALUES (?,?,?,?,?,?,?,?,?)', entries)
+            # c.close()
 
             # if curr_frame['frameName'] not in self.hash_frames:
             #     self.hash_frames[curr_frame['frameName']] = anno_table
@@ -299,21 +334,20 @@ class SegmentLabel(object):
             #         self.hash_frames[curr_frame['frameName']][k] += v
 
             # self.hash_frames[self.initial_frame['frameName']] += anno_table
-
-            # print(anno_table)
-
-            c.executemany('INSERT INTO seglab VALUES (?,?,?,?,?,?,?,?,?)', entries)
-
-
-            # print(self.hash_frames)
+            for k, v in anno_table.items():
+                self.frame_info[k] += v
+            # print(self.frame_info)
             # sceneSeg_list = self.processFrames(self.hash_frames)
-
-            tmp_prev_object = self.object_prev_vector
-            # tmp_spatial = self.spatial_prev_vector
-            tmp_temporal = self.temporal_prev_vector
 
             #generate the combined label result
             frame_ann = self.updateFrameAnno(ann)
+
+
+
+            #############run the algorithm##############################################################################
+            tmp_prev_object = self.object_prev_vector
+            # tmp_spatial = self.spatial_prev_vector
+            tmp_temporal = self.temporal_prev_vector
 
 
             self.object_prev_vector = self.objectEncodingVector(frame_ann)
@@ -324,22 +358,27 @@ class SegmentLabel(object):
             self.object_var_vector = self.objectVariationVector(tmp_prev_object, self.object_prev_vector)
             self.temporal_var_vector = self.temporalVariationVector(tmp_temporal, self.temporal_prev_vector)
 
-            ##detect scene change
+
+            #############compare with the threshold#####################################################################
             if self.thresold_check(self.dissimiliarityVector_simple(self.object_var_vector, tmp_prev_object, self.temporal_var_vector, tmp_temporal)):
-                sceneSeg = self.labeling(self.initial_frame, curr_frame, self.frame_info)
+                # print(self.duration)
+                sceneSeg = self.labeling(self.initial_frame, self.last_frame, self.frame_info)
+                self.initalFrame_object_vector = self.object_prev_vector
+                self.initalFrame_temporal_vector = self.temporal_prev_vector
                 self.seg_num += 1
+                self.frame_cnt = 0.0
+                self.duration = 0
                 self.initial_frame = curr_frame
+                self.last_frame = self.initial_frame
                 self.frame_info = anno_table
 
+            self.last_frame = curr_frame
             self.last_segmented_frame = curr_frame
 
-        #print(sceneSeg)
-        # c.close()
         self.conn.commit()
         if sceneSeg:
-            return json.dumps(sceneSeg)
+            return sceneSeg
         else:
-            # print("no scene change detected!")
             return []
 
     def readConfig(self, config_file):
@@ -347,6 +386,8 @@ class SegmentLabel(object):
             with open(config_file) as csvfile:
                 reader = csv.DictReader(csvfile)
                 for row in reader:
+                    if row["Param"] == "AnnoProFilter":
+                        self.confidence_filter_param = float(row["Value"])
                     if row["Param"] == "Weight":
                         self.weight_param = float(row["Value"])
                     if row["Param"] == "Object":
@@ -357,19 +398,21 @@ class SegmentLabel(object):
                         self.spatial_param = float(row["Value"])
                     if row["Param"] == "Overtime":
                         self.growth_rate = float(row["Value"])
-                    if row["Param"] == "Framerate":
+                    if row["Param"] == "FrameRate":
                         self.time_change_rate = float(row["Value"])
+                    if row["Param"] == "MinSceneDuration":
+                        self.duration_highpass = int(row["Value"])
                     if row["Param"] == "WeightForAdd":
                         self.add_param = float(row["Value"])
                     if row["Param"] == "WeightForRemove":
                         self.remove_param = float(row["Value"])
                     if row["Param"] == "Sum":
                         self.thresold_sum_option = int(row["Value"])
-                    if row["Param"] == "FrequenceThresold":
+                    if row["Param"] == "FrequenceThreshold":
                         self.thresold_ratio = float(row["Value"])
                     if row["Param"] == "ClassRatio":
                         self.class_ratio = float(row["Value"])
-                    if row["Param"] == "Thresold":
+                    if row["Param"] == "Threshold":
                         self.thresold_param = float(row["Value"])
 
 
